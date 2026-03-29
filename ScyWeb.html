@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Vault Scrambler</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; max-width: 900px; margin: 0 auto; padding: 0; background-color: #0f0f0f; color: #f0f0f0; }
+        
+        .progress-bar { width: 100%; background: #2d2d2d; height: 8px; display: none; position: fixed; top: 0; left: 0; z-index: 101; }
+        #fill { width: 0%; height: 100%; background: #9c88ff; transition: width 0.1s; }
+        
+        .top-bar { display: flex; justify-content: space-between; align-items: center; padding: 0 20px; border-bottom: 1px solid #333; position: sticky; top: 0; background: #0f0f0f; z-index: 100; margin-top: 8px; height: 60px; }
+        .tabs { display: flex; gap: 20px; height: 100%; align-items: center; }
+        .tab-btn { background: none; border: none; color: #666; cursor: pointer; font-weight: bold; padding: 10px 0; border-bottom: 2px solid transparent; border-radius: 0; transition: 0.2s; }
+        .tab-btn.active { color: #9c88ff; border-bottom: 2px solid #9c88ff; }
+        
+        .top-right { display: flex; align-items: center; gap: 15px; }
+        #status { font-size: 0.8rem; color: #9c88ff; font-family: monospace; margin: 0; }
+        
+        .panel { background-color: #1e1e1e; padding: 25px; border-radius: 12px; border: 1px solid #333; box-shadow: 0 10px 30px rgba(0,0,0,0.5); margin: 20px; }
+        .view-content { display: none; }
+        .view-content.active { display: block; }
+        
+        .controls { display: flex; flex-direction: column; gap: 15px; }
+        .canvas-wrapper { position: relative; margin-top: 20px; text-align: center; min-height: 200px; display: flex; justify-content: center; align-items: center; background: #111; border-radius: 8px; overflow: hidden; }
+        canvas { max-width: 100%; border-radius: 8px; display: none; }
+        #privacyOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #2d2d2d; border-radius: 8px; display: none; justify-content: center; align-items: center; border: 2px dashed #9c88ff; color: #9c88ff; font-weight: bold; z-index: 10; }
+        
+        input, button { padding: 14px; border-radius: 6px; border: none; font-size: 1rem; }
+        input[type="text"], input[type="password"] { background: #2d2d2d; color: #fff; border: 1px solid #444; flex-grow: 1; transition: border-color 0.3s; outline: none; }
+        
+        input.strength-weak { border: 1px solid #d63031 !important; }
+        input.strength-medium { border: 1px solid #f1c40f !important; }
+        input.strength-strong { border: 1px solid #2ecc71 !important; }
+
+        .btn-group { display: flex; gap: 10px; flex-wrap: wrap; }
+        button { background-color: #9c88ff; color: #fff; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        #hideBtn { background-color: #444; }
+        #clearBtn { background-color: #d63031; padding: 8px 16px; font-size: 0.9rem; }
+        #downloadBtn { background-color: #2ecc71; }
+        #exportLogBtn { background-color: #444; margin-bottom: 10px; }
+        
+        .opt-row { display: flex; align-items: center; gap: 15px; font-size: 0.9rem; color: #bbb; flex-wrap: wrap; }
+        #queueList { margin-top: 15px; font-size: 0.8rem; background: #111; padding: 10px; border-radius: 6px; max-height: 120px; overflow-y: auto; display: none; }
+        
+        #auditLog { font-family: 'Courier New', monospace; font-size: 0.85rem; color: #aaa; background: #0a0a0a; padding: 15px; border-radius: 8px; height: 300px; overflow-y: auto; border: 1px solid #333; }
+        .log-entry { margin-bottom: 5px; border-bottom: 1px solid #1a1a1a; padding-bottom: 3px; }
+        .log-time { color: #555; }
+        .log-action { color: #9c88ff; font-weight: bold; }
+
+        #timerDisplay { font-size: 0.8rem; color: #d63031; font-weight: bold; }
+        .panic-info { font-size: 0.7rem; color: #444; }
+    </style>
+</head>
+<body>
+    <div class="progress-bar" id="pb"><div id="fill"></div></div>
+    
+    <div class="top-bar">
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('vault')">VAULT</button>
+            <button class="tab-btn" onclick="switchTab('logs')">AUDIT LOG</button>
+        </div>
+        <div class="top-right">
+            <p id="status">Ready</p>
+            <span class="panic-info">[ESC] PANIC</span>
+            <span id="timerDisplay">05:00</span>
+            <button id="clearBtn">Clear Session</button>
+        </div>
+    </div>
+
+    <div class="panel">
+        <!-- Vault View -->
+        <div id="vaultView" class="view-content active">
+            <div class="controls">
+                <label>1. Select Image(s)</label>
+                <input type="file" id="upload" accept="image/*" multiple>
+                <label>2. Settings</label>
+                <div class="btn-group">
+                    <input type="password" id="password" placeholder="Secret phrase..." autocomplete="off">
+                    <button id="hideBtn">Hide Preview</button>
+                </div>
+                <div class="opt-row">
+                    <div style="display:flex; gap:5px;"><input type="checkbox" id="secureFn"><label for="secureFn">Secure Names</label></div>
+                    <div style="display:flex; gap:5px;"><input type="checkbox" id="autoDl"><label for="autoDl">Auto-Download</label></div>
+                    <div style="display:flex; gap:5px; color:#555;"><input type="checkbox" checked disabled><label>Strip EXIF</label></div>
+                </div>
+                <div class="btn-group">
+                    <button id="scrambleBtn" style="flex:1">Lock</button>
+                    <button id="unscrambleBtn" style="flex:1">Unlock</button>
+                </div>
+                <div id="queueList"></div>
+                <button id="downloadBtn" disabled>Download All</button>
+            </div>
+            <div class="canvas-wrapper">
+                <div id="privacyOverlay">IMAGE HIDDEN</div>
+                <p id="placeholderText" style="color:#444">Preview area</p>
+                <canvas id="cvs"></canvas>
+            </div>
+        </div>
+
+        <!-- Logs View -->
+        <div id="logsView" class="view-content">
+            <button id="exportLogBtn">Export Log (.txt)</button>
+            <div id="auditLog">
+                <div class="log-entry"><span class="log-time">[System]</span> Session started.</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const upload = document.getElementById('upload'), cvs = document.getElementById('cvs'), ctx = cvs.getContext('2d', { willReadFrequently: true });
+        const passInput = document.getElementById('password'), downloadBtn = document.getElementById('downloadBtn'), status = document.getElementById('status');
+        const pb = document.getElementById('pb'), fill = document.getElementById('fill'), hideBtn = document.getElementById('hideBtn'), overlay = document.getElementById('privacyOverlay');
+        const queueList = document.getElementById('queueList'), clearBtn = document.getElementById('clearBtn'), secureFn = document.getElementById('secureFn');
+        const autoDl = document.getElementById('autoDl'), placeholder = document.getElementById('placeholderText'), auditLog = document.getElementById('auditLog');
+        const timerDisplay = document.getElementById('timerDisplay'), exportBtn = document.getElementById('exportLogBtn');
+
+        let processedFiles = [], destructTime = 300;
+
+        function switchTab(view) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.view-content').forEach(v => v.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById(view + 'View').classList.add('active');
+        }
+
+        function logActivity(action, fileName) {
+            const time = new Date().toLocaleTimeString([], { hour12: false });
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `<span class="log-time">[${time}]</span> <span class="log-action">${action}</span>: ${fileName}`;
+            auditLog.prepend(entry);
+        }
+
+        exportBtn.onclick = () => {
+            const blob = new Blob([auditLog.innerText], { type: 'text/plain' });
+            const a = document.createElement('a');
+            a.download = `audit_log_${Date.now()}.txt`;
+            a.href = URL.createObjectURL(blob);
+            a.click();
+        };
+
+        passInput.oninput = () => {
+            const val = passInput.value;
+            passInput.className = '';
+            if (!val) return;
+            let score = (val.length > 8) + /[A-Z]/.test(val) + /[0-9]/.test(val) + /[^A-Za-z0-9]/.test(val);
+            if (score <= 1) passInput.classList.add('strength-weak');
+            else if (score <= 3) passInput.classList.add('strength-medium');
+            else passInput.classList.add('strength-strong');
+        };
+
+        const panicClear = () => location.reload();
+        clearBtn.addEventListener('click', (e) => panicClear());
+        window.addEventListener('keydown', (e) => e.key === "Escape" && panicClear());
+        window.onclick = window.onkeypress = window.onmousemove = () => destructTime = 300;
+
+        setInterval(() => {
+            destructTime--;
+            let mins = Math.floor(destructTime / 60), secs = destructTime % 60;
+            timerDisplay.innerText = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
+            if (destructTime <= 0) panicClear();
+        }, 1000);
+
+        hideBtn.onclick = () => {
+            const isHidden = overlay.style.display === 'flex';
+            overlay.style.display = isHidden ? 'none' : 'flex';
+            hideBtn.innerText = isHidden ? "Hide Preview" : "Show Preview";
+        };
+
+        upload.onchange = (e) => {
+            const files = e.target.files;
+            if (files.length === 1) {
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        cvs.width = img.width; cvs.height = img.height;
+                        ctx.drawImage(img, 0, 0);
+                        cvs.style.display = 'block'; placeholder.style.display = 'none';
+                        status.innerText = "Ready";
+                    };
+                    img.src = ev.target.result;
+                };
+                reader.readAsDataURL(files[0]);
+            } else {
+                cvs.style.display = 'none'; placeholder.style.display = 'block';
+                placeholder.innerText = `${files.length} images selected.`;
+                status.innerText = "Bulk Ready";
+            }
+        };
+
+        async function hashPassword(text) {
+            const msgUint8 = new TextEncoder().encode(text);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+            const hex = Array.from(new Uint8Array(hashBuffer)).slice(0, 8).map(b => b.toString(16).padStart(2, '0')).join('');
+            return BigInt("0x" + hex);
+        }
+
+        /*
+        // old createPRNG used color diffusion to make it harder to guess match with brute-forcing
+        // caused some pixel issues and did not add better security so it was phased out
+        function* createPRNG(seed) {
+            let state = seed;
+            while (true) {
+                state = (6364136223846793005n * state + 1442695040888963407n) % (2n**64n);
+                yield Number(state % 1000000000n) / 1000000000;
+            }
+        }
+        */
+        
+        // createPRNG replacement to ensure perfect image unscramble
+        function createPRNG(seedPhrase) {
+            let seed = 0;
+            for (let i = 0; i < seedPhrase.length; i++) {
+                seed = ((seed << 5) - seed) + seedPhrase.charCodeAt(i);
+                seed |= 0;
+            }
+            return function() {
+                seed |= 0; seed = seed + 0x9e3779b9 | 0;
+                let t = seed ^ seed >>> 16; t = Math.imul(t, 0x21f0aaad);
+                t = t ^ t >>> 15; t = Math.imul(t, 0x735a2d97);
+                return ((t = t ^ t >>> 15) >>> 0) / 4294967296;
+            };
+        }
+
+
+        async function processImage(file, seed, isUnscramble) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    const img = new Image();
+                    /*
+                    // old createPRNG implementation kept for posterity
+                    img.onload = async () => {
+                        const tCvs = document.createElement('canvas'), tCtx = tCvs.getContext('2d', {willReadFrequently:true});
+                        tCvs.width = img.width; tCvs.height = img.height; tCtx.drawImage(img, 0, 0);
+                        const len = img.width * img.height, pixelData = tCtx.getImageData(0,0,img.width,img.height);
+                        const data = pixelData.data, temp = new Uint8ClampedArray(data), prng = createPRNG(seed), diffVal = Number(seed % 256n);
+                        const map = new Int32Array(len);
+                        for(let i=0; i<len; i++) map[i]=i;
+                        for(let i=len-1; i>0; i--) {
+                            const j = Math.floor(prng.next().value * (i+1));
+                            [map[i], map[j]] = [map[j], map[i]];
+                        }
+                        for(let i=0; i<len; i+=150000) {
+                            for(let j=i; j<Math.min(i+150000, len); j++) {
+                                const s = (isUnscramble ? map[j] : j)*4, d = (isUnscramble ? j : map[j])*4, diff = (map[j]+diffVal)%256;
+                                data[d]=temp[s]^diff; data[d+1]=temp[s+1]^diff; data[d+2]=temp[s+2]^diff; data[d+3]=temp[s+3];
+                            }
+                            await new Promise(r => setTimeout(r,0));
+                        }
+                        tCtx.putImageData(pixelData, 0, 0);
+                        const resData = tCvs.toDataURL();
+                        let fn = secureFn.checked ? Math.random().toString(36).substr(2,12)+".png" : (isUnscramble?'dec_':'enc_')+file.name;
+                        processedFiles.push({ name: fn, data: resData });
+                        if(autoDl.checked) {
+                            const a = document.createElement('a'); a.download = fn; a.href = resData; a.click();
+                        }
+                        if(upload.files.length === 1) {
+                            cvs.width = img.width; cvs.height = img.height;
+                            ctx.putImageData(pixelData, 0, 0); cvs.style.display = 'block';
+                        }
+                        logActivity(isUnscramble ? 'Unlocked' : 'Locked', file.name);
+                        resolve();
+                    };
+                    // end of old createPRNG implementation
+                    */
+                    // new createPRNG implementation to ensure perfect image unscramble
+                    img.onload = async () => {
+                        const tCvs = document.createElement('canvas'), tCtx = tCvs.getContext('2d', {willReadFrequently:true});
+                        tCvs.width = img.width; tCvs.height = img.height; tCtx.drawImage(img, 0, 0);
+                        const len = img.width * img.height;
+                        const pixelData = tCtx.getImageData(0, 0, img.width, img.height);
+                        const data = pixelData.data;
+                        const temp = new Uint8ClampedArray(data); 
+                        const prng = createPRNG(seed);
+                        const map = new Int32Array(len);
+                        for(let i=0; i<len; i++) map[i]=i;
+                        for(let i=len-1; i>0; i--) {
+                            const j = Math.floor((prng.next ? prng.next().value : prng()) * (i + 1));
+                            [map[i], map[j]] = [map[j], map[i]];
+                        }
+                        for(let i=0; i<len; i+=150000) {
+                            const end = Math.min(i + 150000, len);
+                            for(let j=i; j<end; j++) {
+                                const s = (isUnscramble ? map[j] : j) * 4;
+                                const d = (isUnscramble ? j : map[j]) * 4;
+                                data[d]     = temp[s];     
+                                data[d + 1] = temp[s + 1]; 
+                                data[d + 2] = temp[s + 2]; 
+                                data[d + 3] = temp[s + 3];
+                            }
+                            await new Promise(r => setTimeout(r, 0));
+                        }
+
+                        tCtx.putImageData(pixelData, 0, 0);
+                        const resData = tCvs.toDataURL('image/png');
+                        let fn = secureFn.checked ? Math.random().toString(36).substr(2,12)+".png" : (isUnscramble?'dec_':'enc_')+file.name;
+                        processedFiles.push({ name: fn, data: resData });
+                        if(autoDl.checked) {
+                            const a = document.createElement('a'); a.download = fn; a.href = resData; a.click();
+                        }
+                        if(upload.files.length === 1) {
+                            cvs.width = img.width; cvs.height = img.height;
+                            ctx.putImageData(pixelData, 0, 0); 
+                            cvs.style.display = 'block';
+                            placeholder.style.display = 'none';
+                        }
+                        logActivity(isUnscramble ? 'Unlocked' : 'Locked', file.name);
+                        resolve();
+                    };
+                    // end of new createPRNG implementation
+                    img.src = ev.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function startProcess(isUnscramble) {
+            const files = upload.files;
+            if (!files.length) return alert("Select files first.");
+            pb.style.display = 'block'; processedFiles = []; queueList.innerHTML = "";
+            queueList.style.display = files.length > 1 ? 'block' : 'none';
+            const seed = await hashPassword(passInput.value);
+            for (let i = 0; i < files.length; i++) {
+                status.innerText = `Running ${i+1}/${files.length}`;
+                fill.style.width = ((i / files.length) * 100) + "%";
+                if(files.length > 1) queueList.innerHTML += `<div class='queue-item'><span>${files[i].name}</span><span>✅</span></div>`;
+                await processImage(files[i], seed, isUnscramble);
+            }
+            fill.style.width = "100%"; status.innerText = "Done";
+            downloadBtn.disabled = !processedFiles.length;
+            setTimeout(() => { pb.style.display = 'none'; fill.style.width = '0%'; }, 2000);
+        }
+
+        document.getElementById('scrambleBtn').onclick = () => startProcess(false);
+        document.getElementById('unscrambleBtn').onclick = () => startProcess(true);
+        downloadBtn.onclick = () => processedFiles.forEach(f => {
+            const a = document.createElement('a'); a.download = f.name; a.href = f.data; a.click();
+        });
+    </script>
+</body>
+</html>
+
