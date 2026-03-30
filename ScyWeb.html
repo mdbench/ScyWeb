@@ -82,6 +82,7 @@
                     <button id="hideBtn">Hide Preview</button>
                 </div>
                 <div class="opt-row">
+                    <div style="display:flex; gap:5px;"><input type="checkbox" id="modeType"><label for="modeType">Alternate Method</label></div>
                     <div style="display:flex; gap:5px;"><input type="checkbox" id="secureFn"><label for="secureFn">Secure Names</label></div>
                     <div style="display:flex; gap:5px;"><input type="checkbox" id="autoDl"><label for="autoDl">Auto-Download</label></div>
                     <div style="display:flex; gap:5px; color:#555;"><input type="checkbox" checked disabled><label>Strip EXIF</label></div>
@@ -116,6 +117,7 @@
         const queueList = document.getElementById('queueList'), clearBtn = document.getElementById('clearBtn'), secureFn = document.getElementById('secureFn');
         const autoDl = document.getElementById('autoDl'), placeholder = document.getElementById('placeholderText'), auditLog = document.getElementById('auditLog');
         const timerDisplay = document.getElementById('timerDisplay'), exportBtn = document.getElementById('exportLogBtn');
+        const modeType = document.getElementById('modeType');
 
         let processedFiles = [], destructTime = 300;
         var videoFile = null;
@@ -276,105 +278,106 @@
                     */
                     // new createPRNG implementation to ensure perfect image unscramble
                     img.onload = async () => {
-                        // DEFAULT METHOD
-                        // current implementation has pixel perfect re-replication
-                        // the will become the default method with a toggle to allow
-                        // switching to less perfect method that reduces size below 
-                        // an even compressed image
-                        const tCvs = document.createElement('canvas'), tCtx = tCvs.getContext('2d', {willReadFrequently:true});
-                        tCvs.width = img.width; tCvs.height = img.height; tCtx.drawImage(img, 0, 0);
-                        const len = img.width * img.height;
-                        const pixelData = tCtx.getImageData(0, 0, img.width, img.height);
-                        const data = pixelData.data;
-                        const temp = new Uint8ClampedArray(data); 
-                        const prng = createPRNG(seed);
-                        const map = new Int32Array(len);
-                        for(let i=0; i<len; i++) map[i]=i;
-                        for(let i=len-1; i>0; i--) {
-                            const j = Math.floor((prng.next ? prng.next().value : prng()) * (i + 1));
-                            [map[i], map[j]] = [map[j], map[i]];
-                        }
-                        for(let i=0; i<len; i+=150000) {
-                            const end = Math.min(i + 150000, len);
-                            for(let j=i; j<end; j++) {
-                                const s = (isUnscramble ? map[j] : j) * 4;
-                                const d = (isUnscramble ? j : map[j]) * 4;
-                                data[d]     = temp[s];     
-                                data[d + 1] = temp[s + 1]; 
-                                data[d + 2] = temp[s + 2]; 
-                                data[d + 3] = temp[s + 3];
+                        if(modeType.checked != true){
+                            // DEFAULT METHOD
+                            // current implementation has pixel perfect re-replication
+                            // the will become the default method with a toggle to allow
+                            // switching to less perfect method that reduces size below 
+                            // an even compressed image
+                            const tCvs = document.createElement('canvas'), tCtx = tCvs.getContext('2d', {willReadFrequently:true});
+                            tCvs.width = img.width; tCvs.height = img.height; tCtx.drawImage(img, 0, 0);
+                            const len = img.width * img.height;
+                            const pixelData = tCtx.getImageData(0, 0, img.width, img.height);
+                            const data = pixelData.data;
+                            const temp = new Uint8ClampedArray(data); 
+                            const prng = createPRNG(seed);
+                            const map = new Int32Array(len);
+                            for(let i=0; i<len; i++) map[i]=i;
+                            for(let i=len-1; i>0; i--) {
+                                const j = Math.floor((prng.next ? prng.next().value : prng()) * (i + 1));
+                                [map[i], map[j]] = [map[j], map[i]];
                             }
-                            await new Promise(r => setTimeout(r, 0));
+                            for(let i=0; i<len; i+=150000) {
+                                const end = Math.min(i + 150000, len);
+                                for(let j=i; j<end; j++) {
+                                    const s = (isUnscramble ? map[j] : j) * 4;
+                                    const d = (isUnscramble ? j : map[j]) * 4;
+                                    data[d]     = temp[s];     
+                                    data[d + 1] = temp[s + 1]; 
+                                    data[d + 2] = temp[s + 2]; 
+                                    data[d + 3] = temp[s + 3];
+                                }
+                                await new Promise(r => setTimeout(r, 0));
+                            }
+
+                            tCtx.putImageData(pixelData, 0, 0);
+                            const resData = tCvs.toDataURL('image/png');
+                            let fn = secureFn.checked ? Math.random().toString(36).substr(2,12)+".png" : (isUnscramble?'dec_':'enc_')+file.name;
+                            processedFiles.push({ name: fn, data: resData });
+                            if(autoDl.checked) {
+                                const a = document.createElement('a'); a.download = fn; a.href = resData; a.click();
+                            }
+                            if(upload.files.length === 1) {
+                                cvs.width = img.width; cvs.height = img.height;
+                                ctx.putImageData(pixelData, 0, 0); 
+                                cvs.style.display = 'block';
+                                placeholder.style.display = 'none';
+                            }
+                            logActivity(isUnscramble ? 'Unlocked' : 'Locked', file.name);
+                            resolve();
+                        } else {
+                            // ALTERNATIVE METHOD
+                            // this implementation does not have pixel perfect re-replication
+                            // and is not a problem with color diffusion, as it represents
+                            // and entirely different methodology of block-chunking pixels
+                            // to utilize nearest neighbors to allow for better compression
+                            const tCvs = document.createElement('canvas');
+                            const tCtx = tCvs.getContext('2d');
+                            tCvs.width = img.width;
+                            tCvs.height = img.height;
+
+                            const blockSize = 8; 
+                            const cols = Math.floor(img.width / blockSize);
+                            const rows = Math.floor(img.height / blockSize);
+                            const totalBlocks = cols * rows;
+
+                            const blockMap = new Int32Array(totalBlocks);
+                            for (let i = 0; i < totalBlocks; i++) blockMap[i] = i;
+
+                            const prng = createPRNG(seed);
+                            for (let i = totalBlocks - 1; i > 0; i--) {
+                                const j = Math.floor((prng.next ? prng.next().value : prng()) * (i + 1));
+                                [blockMap[i], blockMap[j]] = [blockMap[j], blockMap[i]];
+                            }
+
+                            for (let i = 0; i < totalBlocks; i++) {
+                                const sIdx = isUnscramble ? blockMap[i] : i;
+                                const dIdx = isUnscramble ? i : blockMap[i];
+
+                                const sx = (sIdx % cols) * blockSize;
+                                const sy = Math.floor(sIdx / cols) * blockSize;
+                                const dx = (dIdx % cols) * blockSize;
+                                const dy = Math.floor(dIdx / cols) * blockSize;
+
+                                tCtx.drawImage(img, sx, sy, blockSize, blockSize, dx, dy, blockSize, blockSize);
+                            }
+
+                            const resData = tCvs.toDataURL('image/webp', 1.0); 
+                            let fn = secureFn.checked ? Math.random().toString(36).substr(2,12)+".png" : (isUnscramble?'dec_':'enc_')+file.name;
+
+                            processedFiles.push({ name: fn, data: resData });
+
+                            if (upload.files.length === 1) {
+                                cvs.width = img.width;
+                                cvs.height = img.height;
+                                ctx.drawImage(tCvs, 0, 0); 
+                                cvs.style.display = 'block';
+                                placeholder.style.display = 'none';
+                            }
+
+                            logActivity(isUnscramble ? 'Unlocked' : 'Locked', file.name);
+                            resolve();
                         }
-
-                        tCtx.putImageData(pixelData, 0, 0);
-                        const resData = tCvs.toDataURL('image/png');
-                        let fn = secureFn.checked ? Math.random().toString(36).substr(2,12)+".png" : (isUnscramble?'dec_':'enc_')+file.name;
-                        processedFiles.push({ name: fn, data: resData });
-                        if(autoDl.checked) {
-                            const a = document.createElement('a'); a.download = fn; a.href = resData; a.click();
-                        }
-                        if(upload.files.length === 1) {
-                            cvs.width = img.width; cvs.height = img.height;
-                            ctx.putImageData(pixelData, 0, 0); 
-                            cvs.style.display = 'block';
-                            placeholder.style.display = 'none';
-                        }
-                        logActivity(isUnscramble ? 'Unlocked' : 'Locked', file.name);
-                        resolve();
-
-                        /*
-                        // ALTERNATIVE METHOD
-                        // this implementation does not have pixel perfect re-replication
-                        // and is not a problem with color diffusion, as it represents
-                        // and entirely different methodology of block-chunking pixels
-                        // to utilize nearest neighbors to allow for better compression
-                        const tCvs = document.createElement('canvas');
-                        const tCtx = tCvs.getContext('2d');
-                        tCvs.width = img.width;
-                        tCvs.height = img.height;
-
-                        const blockSize = 8; 
-                        const cols = Math.floor(img.width / blockSize);
-                        const rows = Math.floor(img.height / blockSize);
-                        const totalBlocks = cols * rows;
-
-                        const blockMap = new Int32Array(totalBlocks);
-                        for (let i = 0; i < totalBlocks; i++) blockMap[i] = i;
-
-                        const prng = createPRNG(seed);
-                        for (let i = totalBlocks - 1; i > 0; i--) {
-                            const j = Math.floor((prng.next ? prng.next().value : prng()) * (i + 1));
-                            [blockMap[i], blockMap[j]] = [blockMap[j], blockMap[i]];
-                        }
-
-                        for (let i = 0; i < totalBlocks; i++) {
-                            const sIdx = isUnscramble ? blockMap[i] : i;
-                            const dIdx = isUnscramble ? i : blockMap[i];
-
-                            const sx = (sIdx % cols) * blockSize;
-                            const sy = Math.floor(sIdx / cols) * blockSize;
-                            const dx = (dIdx % cols) * blockSize;
-                            const dy = Math.floor(dIdx / cols) * blockSize;
-
-                            tCtx.drawImage(img, sx, sy, blockSize, blockSize, dx, dy, blockSize, blockSize);
-                        }
-
-                        const resData = tCvs.toDataURL('image/webp', 1.0); 
-                        let fn = secureFn.checked ? Math.random().toString(36).substr(2,12)+".png" : (isUnscramble?'dec_':'enc_')+file.name;
-
-                        processedFiles.push({ name: fn, data: resData });
-
-                        if (upload.files.length === 1) {
-                            cvs.width = img.width;
-                            cvs.height = img.height;
-                            ctx.drawImage(tCvs, 0, 0); 
-                            cvs.style.display = 'block';
-                            placeholder.style.display = 'none';
-                        }
-
-                        logActivity(isUnscramble ? 'Unlocked' : 'Locked', file.name);
-                        resolve();*/
                     };
                     // end of new createPRNG implementation
                     img.src = ev.target.result;

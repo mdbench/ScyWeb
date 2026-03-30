@@ -12,7 +12,13 @@ Lossless compression is not used on unscrambled images so the original image mig
 
 ![Image Scrambling Metrics - Scrambling versus Encryption](https://raw.githubusercontent.com/mdbench/ScyWeb/master/Screenshot-2026-03-29-7.57.16-PM.png)
 
-An encrypted string of the original image [glacier_og_image_4503x3002.jpg](https://raw.githubusercontent.com/mdbench/ScyWeb/refs/heads/main/glacier_og_image_4503x3002.jpg) is 2.3MBs. You can see the methodology used to convert images to encrypted strings by visiting [the image to string converter demo](https://demos.matthewbenchimol.com/ScyWeb/ScyWebConverter.html). Without lossless compression, a scrambled version of the original image is 12.9MBs. With lossless compression, a scrambled version of the original image is 1.3MBs. This was surprising, as it indicated a scrambled image file size could actually be lower than the original copy. The alternative method uses block-chunking using similar nearest neighbors enhancing compression algorithims. It might even be better to use the block-chunking approach if you are going to compress images. More testing is needed.
+An encrypted string of the original image [glacier_og_image_4503x3002.jpg](https://raw.githubusercontent.com/mdbench/ScyWeb/refs/heads/main/glacier_og_image_4503x3002.jpg) is 2.3MBs. You can see the methodology used to convert images to encrypted strings by visiting [the image to string converter demo](https://demos.matthewbenchimol.com/ScyWeb/ScyWebConverter.html). Without lossless compression, a scrambled version of the original image is 12.9MBs. With lossless compression, a scrambled version of the original image is 1.3MBs. This was surprising, as it indicated a scrambled image file size could actually be lower than the original copy. The alternative method uses block-chunking using similar nearest neighbors enhancing compression algorithims.
+
+### Full compression test conducted. Results of tests below:
+- [glacier_og_image_4503x3002.jpg fully compressed = 904KBs](https://raw.githubusercontent.com/mdbench/ScyWeb/refs/heads/main/FINAL_SIZE_MAX_COMPRESSION_glacier_og_image_4503x3002.jpg)
+- [enc_glacier_og_image_4503x3002_scrambled.jpg fully compressed = 1.11MBs](https://raw.githubusercontent.com/mdbench/ScyWeb/refs/heads/main/FINAL_SIZE_MAX_COMPRESSION_ALTERNATIVE_METHOD_enc_glacier_og_image_4503x3002_scrambled.jpg)
+
+> Encrypted string is 100%+ larger than scrambled image. Difference between fully compressed original image and fully compressed scrambled image is 20%+ larger file size. Viability of scrambling images as a substitute for image to string encryption confirmed.
 
 
 ## Movie scrambling
@@ -22,7 +28,6 @@ Lossless compression is not used on unscrambled movies so the original movie mig
 - [Unscrambled Big Buck Bunny](https://raw.githubusercontent.com/mdbench/ScyWeb/refs/heads/main/enc_BBB_Unscrambled.mp4)
 
 ## Due-Outs
-- Add checkbox for default versus alternative method option
 - Fix pixel re-replication issue on alternative method
 - Add bulk image download as .zip option
 - Integrate image scrambling into HelioWeb
