@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Encryptor & Decryptor</title>
+    <style>
+        :root { --purple: #9c27b0; --dark-bg: #121212; --dark-card: #1e1e1e; --text-light: #e0e0e0; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: var(--dark-bg); color: var(--text-light); padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .container { background-color: var(--dark-card); padding: 30px; border-radius: 10px; width: 100%; max-width: 600px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+        h1 { color: var(--purple); text-align: center; }
+        .preview-area { margin: 20px 0; text-align: center; }
+        #imagePreview { max-width: 100%; max-height: 300px; border: 2px dashed var(--purple); border-radius: 8px; display: none; margin: 0 auto; }
+        .placeholder { width: 100%; height: 200px; background: rgba(156,39,176,0.1); border: 2px dashed var(--purple); display: flex; justify-content: center; align-items: center; }
+        input, button { padding: 12px; margin-bottom: 15px; border-radius: 5px; border: none; width: 100%; box-sizing: border-box; }
+        input { background: #2a2a2a; color: white; }
+        button { background: var(--purple); color: white; cursor: pointer; font-weight: bold; }
+        button:hover { background: #7b1fa2; }
+        .status { padding: 10px; border-radius: 5px; display: none; text-align: center; margin-top: 10px; }
+        .success { background: rgba(76,175,80,0.2); color: #4CAF50; }
+        .error { background: rgba(244,67,54,0.2); color: #F44336; }
+        .tab-buttons { display: flex; gap: 10px; margin-bottom: 20px; }
+        .tab-btn { background: #333; flex: 1; color: white; border-radius: 5px; border: none; cursor: pointer; padding: 10px; }
+        .tab-btn.active { background: var(--purple); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Secure Image Tool</h1>
+    <div class="tab-buttons">
+        <button class="tab-btn active" id="tabEnc">Encrypt</button>
+        <button class="tab-btn" id="tabDec">Decrypt</button>
+    </div>
+
+    <div id="encryptSection">
+        <input type="file" id="imageUpload" accept="image/*">
+        <div class="preview-area">
+            <div class="placeholder" id="placeholder">Image Preview</div>
+            <img id="imagePreview">
+        </div>
+        <input type="password" id="encPassword" placeholder="Set Encryption Password">
+        <button id="encryptBtn">Encrypt & Download (.txt)</button>
+    </div>
+
+    <div id="decryptSection" style="display:none;">
+        <input type="file" id="fileUpload" accept=".txt">
+        <input type="password" id="decPassword" placeholder="Enter Password to Decrypt">
+        <button id="decryptBtn">Decrypt & View Image</button>
+    </div>
+
+    <div class="status" id="status"></div>
+</div>
+
+<script>
+    const statusDiv = document.getElementById('status');
+    const imagePreview = document.getElementById('imagePreview');
+    const placeholder = document.getElementById('placeholder');
+
+    function switchTab(tab) {
+        document.getElementById('encryptSection').style.display = tab === 'encrypt' ? 'block' : 'none';
+        document.getElementById('decryptSection').style.display = tab === 'decrypt' ? 'block' : 'none';
+        document.getElementById('tabEnc').classList.toggle('active', tab === 'encrypt');
+        document.getElementById('tabDec').classList.toggle('active', tab === 'decrypt');
+        statusDiv.style.display = 'none';
+    }
+
+    document.getElementById('tabEnc').onclick = () => switchTab('encrypt');
+    document.getElementById('tabDec').onclick = () => switchTab('decrypt');
+
+    function showStatus(msg, type) {
+        statusDiv.innerText = msg;
+        statusDiv.className = 'status ' + type;
+        statusDiv.style.display = 'block';
+    }
+
+    // Stack-safe conversion using native browser APIs
+    async function bufferToBase64(buffer) {
+        const blob = new Blob([buffer]);
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result.split(',')[1]);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+    }
+
+    function base64ToBuffer(b64) {
+        const bin = atob(b64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return bytes;
+    }
+
+    async function deriveKey(password, salt, usage) {
+        const encoder = new TextEncoder();
+        const baseKey = await crypto.subtle.importKey("raw", encoder.encode(password), "PBKDF2", false, ["deriveKey"]);
+        return crypto.subtle.deriveKey(
+            { name: "PBKDF2", salt, iterations: 100000, hash: "SHA-256" },
+            baseKey, { name: "AES-GCM", length: 256 }, false, [usage]
+        );
+    }
+
+    document.getElementById('imageUpload').onchange = e => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = e => {
+                imagePreview.src = e.target.result;
+                imagePreview.style.display = 'block';
+                placeholder.style.display = 'none';
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    document.getElementById('encryptBtn').onclick = async () => {
+        const fileInput = document.getElementById('imageUpload');
+        const pass = document.getElementById('encPassword').value;
+        if (!fileInput.files[0] || !pass) return showStatus("Missing file or password", "error");
+
+        showStatus("Encrypting...", "success");
+        try {
+            const rawBuffer = await fileInput.files[0].arrayBuffer();
+            const salt = crypto.getRandomValues(new Uint8Array(16));
+            const iv = crypto.getRandomValues(new Uint8Array(12));
+            const key = await deriveKey(pass, salt, "encrypt");
+            const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, rawBuffer);
+
+            const combined = new Uint8Array(28 + encrypted.byteLength);
+            combined.set(salt, 0);
+            combined.set(iv, 16);
+            combined.set(new Uint8Array(encrypted), 28);
+
+            const b64 = await bufferToBase64(combined);
+            const blob = new Blob([b64], { type: "text/plain" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `secure_${fileInput.files[0].name}.txt`;
+            a.click();
+            showStatus("Success! File downloaded.", "success");
+        } catch (err) { showStatus("Encryption failed", "error"); }
+    };
+
+    document.getElementById('decryptBtn').onclick = async () => {
+        const fileInput = document.getElementById('fileUpload');
+        const pass = document.getElementById('decPassword').value;
+        if (!fileInput.files[0] || !pass) return showStatus("Missing file or password", "error");
+
+        try {
+            const b64Data = await fileInput.files[0].text();
+            const combined = base64ToBuffer(b64Data);
+            const salt = combined.slice(0, 16);
+            const iv = combined.slice(16, 28);
+            const ciphertext = combined.slice(28);
+
+            const key = await deriveKey(pass, salt, "decrypt");
+            const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ciphertext);
+
+            imagePreview.src = URL.createObjectURL(new Blob([decrypted]));
+            imagePreview.style.display = 'block';
+            placeholder.style.display = 'none';
+            switchTab('encrypt');
+            showStatus("Decrypted successfully!", "success");
+        } catch (err) { showStatus("Wrong password or corrupted file", "error"); }
+    };
+</script>
+</body>
+</html>

@@ -7,8 +7,25 @@ A scytale is an ancient Greek transposition cipher that utilizes a rod and parch
 ## Why do we need it?
 Browsers have become state of the art applications. Many apps available on app stores can be made with wider compatibility for fractions of the code-base and energy. ScyWeb is only 345 lines of code at its base. Cybersecurity is getting harder and harder to achieve and an offline web app makes hacking virtually impossible, a breath of fresh air in a time of insecurity.
 
+## Image scrambling
+Lossless compression is not used on unscrambled images so the original image might be much smaller when compared to the new unscrambled image. Preliminary checks have identified scrambled images without lossless compression substantially smaller than images encrypted to plain text. A scrambled image is a much better option than encrypting images and a more secure option than encrypting an entire database or container of images and decrypting that database or container on application boot up. Image scrambling can be used in conjunction with current compression algorithms without causing issues. Unfortunately, the default mode does not show a proof of concept for a smaller scrambled file size when compared to an encrypted string but the alternative mode (under development) does. The important alternative method metrics have been listed below:
+
+![Image Scrambling Metrics - Scrambling versus Encryption](https://raw.githubusercontent.com/mdbench/ScyWeb/master/Screenshot-2026-03-29-7.57.16-PM.png)
+
+An encrypted string of the original image [glacier_og_image_4503x3002.jpg](https://raw.githubusercontent.com/mdbench/ScyWeb/refs/heads/main/glacier_og_image_4503x3002.jpg) is 2.3MBs. You can see the methodology used to convert images to encrypted strings by visiting [the image to string converter demo](https://demos.matthewbenchimol.com/ScyWeb/ScyWebConverter.html). Without lossless compression, a scrambled version of the original image is 12.9MBs. With lossless compression, a scrambled version of the original image is 1.3MBs. This was surprising, as it indicated a scrambled image file size could actually be lower than the original copy. The alternative method uses block-chunking using similar nearest neighbors enhancing compression algorithims. It might even be better to use the block-chunking approach if you are going to compress images. More testing is needed.
+
+
+## Movie scrambling
+Lossless compression is not used on unscrambled movies so the original movie might be much smaller when compared to the new unscrambled movie. Scrambled movies are much bigger in their scrambled form than movies that use pixel information sharing, as this gets lost in the enciphering process. This is an area for further development. It means encrypted movies are smaller in size than scrambled movies. Below is a demo showing image scrambling being used on Big Buck Bunny at 1080 and then being converted back to unscrambled. There is no visual difference between the movies before and after scrambling and unscrambling them.
+- [Demo](https://demos.matthewbenchimol.com/ScyWeb/ScyWebVideoTester.html)
+- [Original Big Buck Bunny](https://raw.githubusercontent.com/mdbench/ScyWeb/refs/heads/main/Big_Buck_Bunny_1080_10s_30MB.mp4)
+- [Unscrambled Big Buck Bunny](https://raw.githubusercontent.com/mdbench/ScyWeb/refs/heads/main/enc_BBB_Unscrambled.mp4)
+
 ## Due-Outs
+- Add checkbox for default versus alternative method option
+- Fix pixel re-replication issue on alternative method
 - Add bulk image download as .zip option
+- Integrate image scrambling into HelioWeb
 
 ## Want to contribute?
 Send me a pull request.

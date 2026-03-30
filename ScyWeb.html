@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Secure Vault Scrambler</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         body { font-family: 'Segoe UI', sans-serif; max-width: 900px; margin: 0 auto; padding: 0; background-color: #0f0f0f; color: #f0f0f0; }
         
@@ -74,7 +75,7 @@
         <div id="vaultView" class="view-content active">
             <div class="controls">
                 <label>1. Select Image(s)</label>
-                <input type="file" id="upload" accept="image/*" multiple>
+                <input type="file" id="upload" accept="image/*, video/*" multiple>
                 <label>2. Settings</label>
                 <div class="btn-group">
                     <input type="password" id="password" placeholder="Secret phrase..." autocomplete="off">
@@ -117,6 +118,7 @@
         const timerDisplay = document.getElementById('timerDisplay'), exportBtn = document.getElementById('exportLogBtn');
 
         let processedFiles = [], destructTime = 300;
+        var videoFile = null;
 
         function switchTab(view) {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -169,21 +171,26 @@
             hideBtn.innerText = isHidden ? "Hide Preview" : "Show Preview";
         };
 
-        upload.onchange = (e) => {
+        upload.onchange = async (e) => {
             const files = e.target.files;
             if (files.length === 1) {
-                const reader = new FileReader();
-                reader.onload = (ev) => {
-                    const img = new Image();
-                    img.onload = () => {
-                        cvs.width = img.width; cvs.height = img.height;
-                        ctx.drawImage(img, 0, 0);
-                        cvs.style.display = 'block'; placeholder.style.display = 'none';
-                        status.innerText = "Ready";
+                const mimeType = files[0].type;
+                if(mimeType.startsWith('image/')){
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            cvs.width = img.width; cvs.height = img.height;
+                            ctx.drawImage(img, 0, 0);
+                            cvs.style.display = 'block'; placeholder.style.display = 'none';
+                            status.innerText = "Ready";
+                        };
+                        img.src = ev.target.result;
                     };
-                    img.src = ev.target.result;
-                };
-                reader.readAsDataURL(files[0]);
+                    reader.readAsDataURL(files[0]);
+                } else if (mimeType.startsWith('video/')){
+                    videoFile = files[0];
+                }
             } else {
                 cvs.style.display = 'none'; placeholder.style.display = 'block';
                 placeholder.innerText = `${files.length} images selected.`;
@@ -269,6 +276,11 @@
                     */
                     // new createPRNG implementation to ensure perfect image unscramble
                     img.onload = async () => {
+                        // DEFAULT METHOD
+                        // current implementation has pixel perfect re-replication
+                        // the will become the default method with a toggle to allow
+                        // switching to less perfect method that reduces size below 
+                        // an even compressed image
                         const tCvs = document.createElement('canvas'), tCtx = tCvs.getContext('2d', {willReadFrequently:true});
                         tCvs.width = img.width; tCvs.height = img.height; tCtx.drawImage(img, 0, 0);
                         const len = img.width * img.height;
@@ -310,6 +322,59 @@
                         }
                         logActivity(isUnscramble ? 'Unlocked' : 'Locked', file.name);
                         resolve();
+
+                        /*
+                        // ALTERNATIVE METHOD
+                        // this implementation does not have pixel perfect re-replication
+                        // and is not a problem with color diffusion, as it represents
+                        // and entirely different methodology of block-chunking pixels
+                        // to utilize nearest neighbors to allow for better compression
+                        const tCvs = document.createElement('canvas');
+                        const tCtx = tCvs.getContext('2d');
+                        tCvs.width = img.width;
+                        tCvs.height = img.height;
+
+                        const blockSize = 8; 
+                        const cols = Math.floor(img.width / blockSize);
+                        const rows = Math.floor(img.height / blockSize);
+                        const totalBlocks = cols * rows;
+
+                        const blockMap = new Int32Array(totalBlocks);
+                        for (let i = 0; i < totalBlocks; i++) blockMap[i] = i;
+
+                        const prng = createPRNG(seed);
+                        for (let i = totalBlocks - 1; i > 0; i--) {
+                            const j = Math.floor((prng.next ? prng.next().value : prng()) * (i + 1));
+                            [blockMap[i], blockMap[j]] = [blockMap[j], blockMap[i]];
+                        }
+
+                        for (let i = 0; i < totalBlocks; i++) {
+                            const sIdx = isUnscramble ? blockMap[i] : i;
+                            const dIdx = isUnscramble ? i : blockMap[i];
+
+                            const sx = (sIdx % cols) * blockSize;
+                            const sy = Math.floor(sIdx / cols) * blockSize;
+                            const dx = (dIdx % cols) * blockSize;
+                            const dy = Math.floor(dIdx / cols) * blockSize;
+
+                            tCtx.drawImage(img, sx, sy, blockSize, blockSize, dx, dy, blockSize, blockSize);
+                        }
+
+                        const resData = tCvs.toDataURL('image/webp', 1.0); 
+                        let fn = secureFn.checked ? Math.random().toString(36).substr(2,12)+".png" : (isUnscramble?'dec_':'enc_')+file.name;
+
+                        processedFiles.push({ name: fn, data: resData });
+
+                        if (upload.files.length === 1) {
+                            cvs.width = img.width;
+                            cvs.height = img.height;
+                            ctx.drawImage(tCvs, 0, 0); 
+                            cvs.style.display = 'block';
+                            placeholder.style.display = 'none';
+                        }
+
+                        logActivity(isUnscramble ? 'Unlocked' : 'Locked', file.name);
+                        resolve();*/
                     };
                     // end of new createPRNG implementation
                     img.src = ev.target.result;
@@ -319,20 +384,24 @@
         }
 
         async function startProcess(isUnscramble) {
-            const files = upload.files;
-            if (!files.length) return alert("Select files first.");
-            pb.style.display = 'block'; processedFiles = []; queueList.innerHTML = "";
-            queueList.style.display = files.length > 1 ? 'block' : 'none';
             const seed = await hashPassword(passInput.value);
-            for (let i = 0; i < files.length; i++) {
-                status.innerText = `Running ${i+1}/${files.length}`;
-                fill.style.width = ((i / files.length) * 100) + "%";
-                if(files.length > 1) queueList.innerHTML += `<div class='queue-item'><span>${files[i].name}</span><span>✅</span></div>`;
-                await processImage(files[i], seed, isUnscramble);
+            if (videoFile != null){
+                await processVideo(videoFile, 30, seed, isUnscramble);
+            } else {
+                const files = upload.files;
+                if (!files.length) return alert("Select files first.");
+                pb.style.display = 'block'; processedFiles = []; queueList.innerHTML = "";
+                queueList.style.display = files.length > 1 ? 'block' : 'none';
+                for (let i = 0; i < files.length; i++) {
+                    status.innerText = `Running ${i+1}/${files.length}`;
+                    fill.style.width = ((i / files.length) * 100) + "%";
+                    if(files.length > 1) queueList.innerHTML += `<div class='queue-item'><span>${files[i].name}</span><span>✅</span></div>`;
+                    await processImage(files[i], seed, isUnscramble);
+                }
+                fill.style.width = "100%"; status.innerText = "Done";
+                downloadBtn.disabled = !processedFiles.length;
+                setTimeout(() => { pb.style.display = 'none'; fill.style.width = '0%'; }, 2000);
             }
-            fill.style.width = "100%"; status.innerText = "Done";
-            downloadBtn.disabled = !processedFiles.length;
-            setTimeout(() => { pb.style.display = 'none'; fill.style.width = '0%'; }, 2000);
         }
 
         document.getElementById('scrambleBtn').onclick = () => startProcess(false);
@@ -340,6 +409,148 @@
         downloadBtn.onclick = () => processedFiles.forEach(f => {
             const a = document.createElement('a'); a.download = f.name; a.href = f.data; a.click();
         });
+
+        //movie/video functions
+        async function processVideo(file, fps = 30, seed = "", isUnscramble = false) {
+            const zip = new JSZip();
+            const controller = new AbortController();
+            const { signal } = controller;
+
+            const loader = document.createElement('div');
+            Object.assign(loader.style, {
+                position: 'fixed', top: '0', left: '0', width: '100%', height: '100%',
+                backgroundColor: 'rgba(0,0,0,0.95)', color: 'white', display: 'flex',
+                flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                zIndex: '10000', fontFamily: 'system-ui, sans-serif', gap: '15px'
+            });
+            loader.innerHTML = `
+                <div style="border: 4px solid rgba(255,255,255,0.1); border-top: 4px solid #3498db; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite;"></div>
+                <canvas id="live-preview" style="max-width: 80%; max-height: 40vh; border: 2px solid #444; border-radius: 8px; background: #000; display: block;"></canvas>
+                <p id="progress-text" style="font-size: 14px; color: #ccc; margin: 0;">Initializing...</p>
+                <div style="width: 250px; height: 8px; background: #333; border-radius: 4px; overflow: hidden;"><div id="bar" style="width: 0%; height: 100%; background: #3498db;"></div></div>
+                <button id="cancel-btn" style="padding: 10px 20px; background: #e74c3c; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">Cancel</button>
+                <style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
+            `;
+            document.body.appendChild(loader);
+            const bar = loader.querySelector('#bar'), status = loader.querySelector('#progress-text');
+            const livePreview = loader.querySelector('#live-preview'), lpCtx = livePreview.getContext('2d', { alpha: false });
+            loader.querySelector('#cancel-btn').onclick = () => controller.abort();
+
+            try {
+                if (!isUnscramble) {
+                    const video = document.createElement('video');
+                    video.src = URL.createObjectURL(file);
+                    await new Promise(r => video.onloadedmetadata = r);
+                    const { videoWidth: w, videoHeight: h, duration } = video;
+                    
+                    const metadata = { fps, w, h, duration, totalFrames: Math.round(duration * fps), name: file.name };
+                    zip.file("metadata.json", JSON.stringify(metadata));
+
+                    livePreview.width = w; livePreview.height = h;
+                    const cvs = new OffscreenCanvas(w, h);
+                    const ctx = cvs.getContext('2d', { willReadFrequently: true, colorSpace: 'srgb' });
+                    
+                    const len = w * h, prng = createPRNG(seed), map = new Int32Array(len);
+                    for(let i=0; i<len; i++) map[i]=i;
+                    for(let i=len-1; i>0; i--) {
+                        const j = Math.floor((prng.next ? prng.next().value : prng()) * (i + 1));
+                        [map[i], map[j]] = [map[j], map[i]];
+                    }
+
+                    let currentTime = 0, frameIdx = 0;
+                    while (currentTime < duration) {
+                        if (signal.aborted) return;
+                        video.currentTime = currentTime;
+                        await new Promise(r => video.onseeked = r);
+                        ctx.drawImage(video, 0, 0);
+                        
+                        const pixelData = ctx.getImageData(0, 0, w, h, { colorSpace: 'srgb' });
+                        const data32 = new Uint32Array(pixelData.data.buffer), temp32 = new Uint32Array(data32);
+                        for(let j=0; j<len; j++) data32[map[j]] = temp32[j];
+                        ctx.putImageData(pixelData, 0, 0);
+                        
+                        lpCtx.drawImage(cvs, 0, 0);
+                        const blob = await cvs.convertToBlob({ type: 'image/png' });
+                        zip.file(`f_${frameIdx.toString().padStart(5,'0')}.png`, blob);
+                        
+                        frameIdx++; currentTime += 1/fps;
+                        status.innerText = `Scrambling: ${frameIdx}/${metadata.totalFrames}`;
+                        bar.style.width = `${(frameIdx / metadata.totalFrames) * 100}%`;
+                        await new Promise(r => setTimeout(r, 0));
+                    }
+
+                    const finalZip = await zip.generateAsync({ type: "blob" });
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(finalZip);
+                    a.download = file.name.split('.')[0] + "_secure.mp4";
+                    a.click();
+
+                } else {
+                    status.innerText = "Reading Metadata...";
+                    const unzipped = await zip.loadAsync(file);
+                    const meta = JSON.parse(await unzipped.file("metadata.json").async("string"));
+                    const frameNames = Object.keys(unzipped.files).filter(n => n.endsWith('.png')).sort();
+                    
+                    const { w, h, fps: originalFps } = meta;
+                    const frameDuration = 1000 / originalFps; // Calculate exact timing
+                    
+                    const len = w * h, prng = createPRNG(seed), map = new Int32Array(len);
+                    for(let k=0; k<len; k++) map[k]=k;
+                    for(let k=len-1; k>0; k--) {
+                        const j = Math.floor((prng.next ? prng.next().value : prng()) * (k + 1));
+                        [map[k], map[j]] = [map[j], map[k]];
+                    }
+
+                    const outCanvas = document.createElement('canvas');
+                    outCanvas.width = w; outCanvas.height = h;
+                    const outCtx = outCanvas.getContext('2d', { alpha: false, colorSpace: 'srgb', willReadFrequently: true });
+                    livePreview.width = w; livePreview.height = h;
+
+                    const stream = outCanvas.captureStream(0); 
+                    const recorder = new MediaRecorder(stream, { 
+                        mimeType: 'video/webm;codecs=vp9', 
+                        videoBitsPerSecond: 150000000 
+                    });
+                    const chunks = [];
+                    recorder.ondataavailable = e => chunks.push(e.data);
+
+                    for (let i = 0; i < frameNames.length; i++) {
+                        if (signal.aborted) { recorder.stop(); return; }
+                        const imgBlob = await unzipped.file(frameNames[i]).async("blob");
+                        const img = await createImageBitmap(imgBlob);
+                        
+                        outCtx.drawImage(img, 0, 0);
+                        const pixelData = outCtx.getImageData(0, 0, w, h, { colorSpace: 'srgb' });
+                        const data32 = new Uint32Array(pixelData.data.buffer), temp32 = new Uint32Array(data32);
+                        for(let j=0; j<len; j++) data32[j] = temp32[map[j]];
+                        outCtx.putImageData(pixelData, 0, 0);
+                        
+                        if (i === 0) recorder.start();
+                        else recorder.resume();
+
+                        stream.getVideoTracks()[0].requestFrame(); 
+                        lpCtx.drawImage(outCanvas, 0, 0);
+                        
+                        await new Promise(r => setTimeout(r, frameDuration));
+                        if (i < frameNames.length - 1) recorder.pause();
+
+                        status.innerText = `Unscrambling: ${i+1}/${frameNames.length}`;
+                        bar.style.width = `${((i+1)/frameNames.length)*100}%`;
+                        img.close();
+                    }
+                    
+                    recorder.stop();
+                    recorder.onstop = () => {
+                        const finalBlob = new Blob(chunks, { type: 'video/webm' });
+                        const a = document.createElement('a');
+                        a.href = URL.createObjectURL(finalBlob);
+                        a.download = "unscrambled_" + (meta.name || "video.webm");
+                        a.click();
+                    };
+                }
+            } catch (e) { console.error(e); } finally { if (document.body.contains(loader)) document.body.removeChild(loader); }
+        }
+
     </script>
 </body>
 </html>
