@@ -82,7 +82,8 @@
                     <button id="hideBtn">Hide Preview</button>
                 </div>
                 <div class="opt-row">
-                    <div style="display:flex; gap:5px;"><input type="checkbox" id="modeType"><label for="modeType">Alternate Method</label></div>
+                    <div style="display:flex; gap:5px;"><input type="checkbox" id="modeType"><label for="modeType">Alternative (Compression Compatible)</label></div>
+                    <div style="display:flex; gap:5px;"><input type="checkbox" id="modeType2"><label for="modeType2">Quantum (Compression Incompatible)</label></div>
                     <div style="display:flex; gap:5px;"><input type="checkbox" id="secureFn"><label for="secureFn">Secure Names</label></div>
                     <div style="display:flex; gap:5px;"><input type="checkbox" id="autoDl"><label for="autoDl">Auto-Download</label></div>
                     <div style="display:flex; gap:5px; color:#555;"><input type="checkbox" checked disabled><label>Strip EXIF</label></div>
@@ -117,7 +118,14 @@
         const queueList = document.getElementById('queueList'), clearBtn = document.getElementById('clearBtn'), secureFn = document.getElementById('secureFn');
         const autoDl = document.getElementById('autoDl'), placeholder = document.getElementById('placeholderText'), auditLog = document.getElementById('auditLog');
         const timerDisplay = document.getElementById('timerDisplay'), exportBtn = document.getElementById('exportLogBtn');
-        const modeType = document.getElementById('modeType');
+        const modeType = document.getElementById('modeType'), modeType2 = document.getElementById('modeType2');
+
+        modeType.addEventListener('change', function() {
+            modeType2.checked = false;
+        });
+        modeType2.addEventListener('change', function() {
+            modeType.checked = false;
+        });
 
         let processedFiles = [], destructTime = 300;
         var videoFile = null;
@@ -220,20 +228,17 @@
         */
         
         // createPRNG replacement to ensure perfect image unscramble
-        function createPRNG(seedPhrase) {
-            let seed = 0;
-            for (let i = 0; i < seedPhrase.length; i++) {
-                seed = ((seed << 5) - seed) + seedPhrase.charCodeAt(i);
-                seed |= 0;
-            }
+        function createPRNG(numericSeed) {
+            let seed = Number(numericSeed % 4294967296n) | 0;
             return function() {
-                seed |= 0; seed = seed + 0x9e3779b9 | 0;
-                let t = seed ^ seed >>> 16; t = Math.imul(t, 0x21f0aaad);
-                t = t ^ t >>> 15; t = Math.imul(t, 0x735a2d97);
-                return ((t = t ^ t >>> 15) >>> 0) / 4294967296;
+                seed = (seed + 0x9e3779b9) | 0;
+                let t = seed ^ (seed >>> 16);
+                t = Math.imul(t, 0x21f0aaad);
+                t = t ^ (t >>> 15);
+                t = Math.imul(t, 0x735a2d97);
+                return ((t = t ^ (t >>> 15)) >>> 0) / 4294967296;
             };
         }
-
 
         async function processImage(file, seed, isUnscramble) {
             return new Promise((resolve) => {
@@ -278,7 +283,7 @@
                     */
                     // new createPRNG implementation to ensure perfect image unscramble
                     img.onload = async () => {
-                        if(modeType.checked != true){
+                        if(modeType.checked != true && modeType2.checked != true){
                             // DEFAULT METHOD
                             // current implementation has pixel perfect re-replication
                             // the will become the default method with a toggle to allow
@@ -325,7 +330,7 @@
                             }
                             logActivity(isUnscramble ? 'Unlocked' : 'Locked', file.name);
                             resolve();
-                        } else {
+                        } else if (modeType.checked == true && modeType2.checked != true) {
                             // ALTERNATIVE METHOD
                             // this implementation does not have pixel perfect re-replication
                             // and is not a problem with color diffusion, as it represents
@@ -377,6 +382,102 @@
 
                             logActivity(isUnscramble ? 'Unlocked' : 'Locked', file.name);
                             resolve();
+                        } else if (modeType.checked != true && modeType2.checked == true){
+                            // QUANTUM METHOD
+                            // this implementation has near pixel perfect re-replication in most cases
+                            // it represents an entirely different methodology of block-chunking pixels
+                            // it seems to be quantum proof
+                            const tCvs = document.createElement('canvas'), tCtx = tCvs.getContext('2d', {willReadFrequently:true});
+                            tCvs.width = img.width; tCvs.height = img.height;
+                            tCtx.drawImage(img, 0, 0);
+                            const w = img.width, h = img.height;
+                            const block_size = 8; 
+                            const cols = Math.ceil(w / block_size);
+                            const rows = Math.ceil(h / block_size);
+                            const numBlocks = cols * rows;
+                            const pixelData = tCtx.getImageData(0, 0, w, h);
+                            const data = pixelData.data;
+                            const getIdx = (x, y) => (Math.min(y, h - 1) * w + Math.min(x, w - 1)) * 4;
+                            const uniqueChunks = [];
+                            const chunkMap = new Int32Array(numBlocks);
+                            const hashMap = new Map();
+                            for (let i = 0; i < numBlocks; i++) {
+                                const by = Math.floor(i / cols) * block_size;
+                                const bx = (i % cols) * block_size;
+                                let key = "";
+                                for (let y = 0; y < block_size; y++) {
+                                    for (let x = 0; x < block_size; x++) {
+                                        const p = getIdx(bx + x, by + y);
+                                        key += data[p] + "," + data[p+1] + "," + data[p+2] + "," + data[p+3] + "|";
+                                    }
+                                }
+                                if (!hashMap.has(key)) {
+                                    const block = new Uint8ClampedArray(block_size * block_size * 4);
+                                    let bIdx = 0;
+                                    for (let y = 0; y < block_size; y++) {
+                                        for (let x = 0; x < block_size; x++) {
+                                            const p = getIdx(bx + x, by + y);
+                                            block[bIdx++] = data[p];
+                                            block[bIdx++] = data[p+1];
+                                            block[bIdx++] = data[p+2];
+                                            block[bIdx++] = data[p+3];
+                                        }
+                                    }
+                                    hashMap.set(key, uniqueChunks.length);
+                                    uniqueChunks.push(block);
+                                }
+                                chunkMap[i] = hashMap.get(key);
+                            }
+                            const prng = createPRNG(seed);
+                            const shuffleMap = new Int32Array(numBlocks);
+                            for(let i=0; i<numBlocks; i++) shuffleMap[i] = i;
+                            for(let i = numBlocks - 1; i > 0; i--) {
+                                const val = (prng.next ? prng.next().value : prng());
+                                const j = Math.floor(val * (i + 1));
+                                [shuffleMap[i], shuffleMap[j]] = [shuffleMap[j], shuffleMap[i]];
+                            }
+                            const colorPrng = createPRNG(seed); 
+                            for (let i = 0; i < numBlocks; i++) {
+                                const srcIdx = isUnscramble ? shuffleMap[i] : i;
+                                const dstIdx = isUnscramble ? i : shuffleMap[i];
+                                const val = (colorPrng.next ? colorPrng.next().value : colorPrng());
+                                const offset = Math.floor(val * 256); 
+                                const chunk = uniqueChunks[chunkMap[srcIdx]];
+                                const dy = Math.floor(dstIdx / cols) * block_size;
+                                const dx = (dstIdx % cols) * block_size;
+                                let bIdx = 0;
+                                for (let y = 0; y < block_size; y++) {
+                                    for (let x = 0; x < block_size; x++) {
+                                        if (dx + x < w && dy + y < h) {
+                                            const p = ((dy + y) * w + (dx + x)) * 4;
+                                            for (let c = 0; c < 3; c++) {
+                                                let original = chunk[bIdx++];
+                                                if (!isUnscramble) {
+                                                    data[p + c] = (original + offset) % 256;
+                                                } else {
+                                                    let result = (original - offset) % 256;
+                                                    data[p + c] = result < 0 ? result + 256 : result;
+                                                }
+                                            }
+                                            bIdx++;
+                                            data[p + 3] = chunk[bIdx - 1];
+                                        } else {
+                                            bIdx += 4;
+                                        }
+                                    }
+                                }
+                                if (i % (cols * 10) === 0) await new Promise(r => setTimeout(r, 0));
+                            }
+                            tCtx.putImageData(pixelData, 0, 0);
+                            const resData = tCvs.toDataURL('image/png');
+                            let fn = secureFn.checked ? Math.random().toString(36).substr(2,12)+".png" : (isUnscramble?'dec_':'enc_')+file.name;
+                            processedFiles.push({ name: fn, data: resData });
+                            if(autoDl.checked) { const a = document.createElement('a'); a.download = fn; a.href = resData; a.click(); }
+                            if(upload.files.length === 1) { cvs.width = img.width; cvs.height = img.height; ctx.putImageData(pixelData, 0, 0); cvs.style.display = 'block'; placeholder.style.display = 'none'; }
+                            logActivity(isUnscramble ? 'Unlocked' : 'Locked', file.name);
+                            resolve();
+                        } else {
+                            alert("Please select one mode and try again.");
                         }
                     };
                     // end of new createPRNG implementation

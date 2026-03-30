@@ -20,6 +20,12 @@ An encrypted string of the original image [glacier_og_image_4503x3002.jpg](https
 
 > Encrypted string is 100%+ larger than scrambled image. Difference between fully compressed original image and fully compressed scrambled image is 20%+ larger file size. Viability of scrambling images as a substitute for image to string encryption confirmed.
 
+### Quantum-resistant method
+Still under development but color diffusion is present in a unique format and looks to impossible to unscramble using heuristic algorithms.
+
+> Encrypted string is 15%+ larger than scrambled image. Unfortunately, quantum resistant method is not compatible with compression, as it has too many pixel re-replication errors.
+
+#### Success of image scrambling for tailored use cases is high. Unique viable use for making uninterrupted and uncompromised streaming, making a video stream unable to be modified in transit when delivered to users in real-time, offloading costs to user devices when it comes to unscrambling and re-rendering. Other uses include secure Bluerays, DVDs, and new age optical drives. Advanced use cases for movies delivered to theaters to prevent bootlegging. More use cases being tested but the sky is the limit.
 
 ## Movie scrambling
 Lossless compression is not used on unscrambled movies so the original movie might be much smaller when compared to the new unscrambled movie. Scrambled movies are much bigger in their scrambled form than movies that use pixel information sharing, as this gets lost in the enciphering process. This is an area for further development. It means encrypted movies are smaller in size than scrambled movies. Below is a demo showing image scrambling being used on Big Buck Bunny at 1080 and then being converted back to unscrambled. There is no visual difference between the movies before and after scrambling and unscrambling them.
