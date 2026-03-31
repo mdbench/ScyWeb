@@ -21,7 +21,8 @@ An encrypted string of the original image [glacier_og_image_4503x3002.jpg](https
 > Encrypted string is 100%+ larger than scrambled image. Difference between fully compressed original image and fully compressed scrambled image is 20%+ larger file size. Viability of scrambling images as a substitute for image to string encryption confirmed.
 
 ### Quantum-resistant method
-Quantum-proofing confirmed. Need third-parties to verify. 
+Quantum-proofing confirmed. Need third-parties to verify.
+- Quantum resistance is a holistic approach, as the image must be indecipherable without the password but the image must also be quantum resistant from visual heuristic algos that attempt to coercively scramble the image back together.
 
 > Encrypted string is 15%+ larger than scrambled image. Unfortunately, quantum resistant method is not compatible with compression, as it has too many pixel re-replication errors.
 
@@ -34,8 +35,11 @@ Lossless compression is not used on unscrambled movies so the original movie mig
 - [Unscrambled Big Buck Bunny](https://raw.githubusercontent.com/mdbench/ScyWeb/refs/heads/main/enc_BBB_Unscrambled.mp4)
 
 ## Due-Outs
-- Fix pixel re-replication issue on alternative method
-- Add bulk image download as .zip option
+- Fix pixel re-replication issue for fully compressed images on alternative method 
+    - Severity: Low
+- Fix pixel re-replication issue for fully compressed images on quantum method
+    - Severity: High
+- Add bulk image download for all files as a .zip option 
 - Integrate image scrambling into HelioWeb
 
 ## Want to contribute?
