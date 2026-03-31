@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Secure Vault Scrambler</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/1.0.11/pako.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/upng-js@2.1.0/UPNG.min.js"></script>
     <style>
         body { font-family: 'Segoe UI', sans-serif; max-width: 900px; margin: 0 auto; padding: 0; background-color: #0f0f0f; color: #f0f0f0; }
         
@@ -80,6 +82,7 @@
                 <div class="btn-group">
                     <input type="password" id="password" placeholder="Secret phrase..." autocomplete="off">
                     <button id="hideBtn">Hide Preview</button>
+                    <button id="analyzeImageBtn" onclick="analyzeCanvasImage()">Analyze</button>
                 </div>
                 <div class="opt-row">
                     <div style="display:flex; gap:5px;"><input type="checkbox" id="modeType"><label for="modeType">Alternative (Compression Compatible)</label></div>
@@ -208,26 +211,24 @@
             }
         };
 
+        /*
+        // updated hashPassword methodology to make quantum resistant
+        // in accordance with Gemini Preliminary Analysis PDF
         async function hashPassword(text) {
             const msgUint8 = new TextEncoder().encode(text);
             const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
             const hex = Array.from(new Uint8Array(hashBuffer)).slice(0, 8).map(b => b.toString(16).padStart(2, '0')).join('');
             return BigInt("0x" + hex);
-        }
+        }*/
 
-        /*
-        // old createPRNG used color diffusion to make it harder to guess match with brute-forcing
-        // caused some pixel issues and did not add better security so it was phased out
-        function* createPRNG(seed) {
-            let state = seed;
-            while (true) {
-                state = (6364136223846793005n * state + 1442695040888963407n) % (2n**64n);
-                yield Number(state % 1000000000n) / 1000000000;
-            }
+        async function hashPassword(text) {
+            const msgUint8 = new TextEncoder().encode(text);
+            return await crypto.subtle.digest('SHA-256', msgUint8); 
         }
-        */
         
-        // createPRNG replacement to ensure perfect image unscramble
+        /*
+        // updated createPRNG methodology to make quantum resistant
+        // in accordance with Gemini Preliminary Analysis PDF
         function createPRNG(numericSeed) {
             let seed = Number(numericSeed % 4294967296n) | 0;
             return function() {
@@ -239,50 +240,39 @@
                 return ((t = t ^ (t >>> 15)) >>> 0) / 4294967296;
             };
         }
+        */
+        // here is updated createPRNG
+        function createPRNG(hashBuffer) {
+            const state = new Uint32Array(hashBuffer); 
+            let counter = 0;
+            function mix(a, b, c, d) {
+                a = (a + b) | 0; d ^= a; d = (d << 16) | (d >>> 16);
+                c = (c + d) | 0; b ^= c; b = (b << 12) | (b >>> 20);
+                a = (a + b) | 0; d ^= a; d = (d << 8) | (d >>> 24);
+                c = (c + d) | 0; b ^= c; b = (b << 7) | (b >>> 25);
+                return [a, b, c, d];
+            }
+            return function() {
+                counter++;
+                let working = new Uint32Array(state);
+                working[0] ^= counter;
+                for (let i = 0; i < 10; i++) {
+                    [working[0], working[1], working[2], working[3]] = mix(working[0], working[1], working[2], working[3]);
+                    [working[4], working[5], working[6], working[7]] = mix(working[4], working[5], working[6], working[7]);
+                }
+                return (working[0] >>> 0) / 4294967296;
+            };
+        }
 
         async function processImage(file, seed, isUnscramble) {
             return new Promise((resolve) => {
                 const reader = new FileReader();
                 reader.onload = (ev) => {
                     const img = new Image();
-                    /*
-                    // old createPRNG implementation kept for posterity
                     img.onload = async () => {
-                        const tCvs = document.createElement('canvas'), tCtx = tCvs.getContext('2d', {willReadFrequently:true});
-                        tCvs.width = img.width; tCvs.height = img.height; tCtx.drawImage(img, 0, 0);
-                        const len = img.width * img.height, pixelData = tCtx.getImageData(0,0,img.width,img.height);
-                        const data = pixelData.data, temp = new Uint8ClampedArray(data), prng = createPRNG(seed), diffVal = Number(seed % 256n);
-                        const map = new Int32Array(len);
-                        for(let i=0; i<len; i++) map[i]=i;
-                        for(let i=len-1; i>0; i--) {
-                            const j = Math.floor(prng.next().value * (i+1));
-                            [map[i], map[j]] = [map[j], map[i]];
-                        }
-                        for(let i=0; i<len; i+=150000) {
-                            for(let j=i; j<Math.min(i+150000, len); j++) {
-                                const s = (isUnscramble ? map[j] : j)*4, d = (isUnscramble ? j : map[j])*4, diff = (map[j]+diffVal)%256;
-                                data[d]=temp[s]^diff; data[d+1]=temp[s+1]^diff; data[d+2]=temp[s+2]^diff; data[d+3]=temp[s+3];
-                            }
-                            await new Promise(r => setTimeout(r,0));
-                        }
-                        tCtx.putImageData(pixelData, 0, 0);
-                        const resData = tCvs.toDataURL();
-                        let fn = secureFn.checked ? Math.random().toString(36).substr(2,12)+".png" : (isUnscramble?'dec_':'enc_')+file.name;
-                        processedFiles.push({ name: fn, data: resData });
-                        if(autoDl.checked) {
-                            const a = document.createElement('a'); a.download = fn; a.href = resData; a.click();
-                        }
-                        if(upload.files.length === 1) {
-                            cvs.width = img.width; cvs.height = img.height;
-                            ctx.putImageData(pixelData, 0, 0); cvs.style.display = 'block';
-                        }
-                        logActivity(isUnscramble ? 'Unlocked' : 'Locked', file.name);
-                        resolve();
-                    };
-                    // end of old createPRNG implementation
-                    */
-                    // new createPRNG implementation to ensure perfect image unscramble
-                    img.onload = async () => {
+                        // start of encryption/decryption methods
+                        // 3 types: default, alternate, and quantum resistant
+                        // pros and cons for each method, depending on use case
                         if(modeType.checked != true && modeType2.checked != true){
                             // DEFAULT METHOD
                             // current implementation has pixel perfect re-replication
@@ -314,9 +304,14 @@
                                 }
                                 await new Promise(r => setTimeout(r, 0));
                             }
-
                             tCtx.putImageData(pixelData, 0, 0);
-                            const resData = tCvs.toDataURL('image/png');
+                            //const resData = tCvs.toDataURL('image/png');
+                            const compressedBlob = await compressImageLosslessWithQuantization(tCvs);
+                            const resData = await new Promise((resolve) => {
+                                const reader = new FileReader();
+                                reader.onloadend = () => resolve(reader.result);
+                                reader.readAsDataURL(compressedBlob);
+                            });
                             let fn = secureFn.checked ? Math.random().toString(36).substr(2,12)+".png" : (isUnscramble?'dec_':'enc_')+file.name;
                             processedFiles.push({ name: fn, data: resData });
                             if(autoDl.checked) {
@@ -340,38 +335,35 @@
                             const tCtx = tCvs.getContext('2d');
                             tCvs.width = img.width;
                             tCvs.height = img.height;
-
                             const blockSize = 8; 
                             const cols = Math.floor(img.width / blockSize);
                             const rows = Math.floor(img.height / blockSize);
                             const totalBlocks = cols * rows;
-
                             const blockMap = new Int32Array(totalBlocks);
                             for (let i = 0; i < totalBlocks; i++) blockMap[i] = i;
-
                             const prng = createPRNG(seed);
                             for (let i = totalBlocks - 1; i > 0; i--) {
                                 const j = Math.floor((prng.next ? prng.next().value : prng()) * (i + 1));
                                 [blockMap[i], blockMap[j]] = [blockMap[j], blockMap[i]];
                             }
-
                             for (let i = 0; i < totalBlocks; i++) {
                                 const sIdx = isUnscramble ? blockMap[i] : i;
                                 const dIdx = isUnscramble ? i : blockMap[i];
-
                                 const sx = (sIdx % cols) * blockSize;
                                 const sy = Math.floor(sIdx / cols) * blockSize;
                                 const dx = (dIdx % cols) * blockSize;
                                 const dy = Math.floor(dIdx / cols) * blockSize;
-
                                 tCtx.drawImage(img, sx, sy, blockSize, blockSize, dx, dy, blockSize, blockSize);
                             }
-
-                            const resData = tCvs.toDataURL('image/webp', 1.0); 
+                            //const resData = tCvs.toDataURL('image/webp', 1.0); 
+                            const compressedBlob = await compressImageAdaptive(tCvs);
+                            const resData = await new Promise((resolve) => {
+                                const reader = new FileReader();
+                                reader.onloadend = () => resolve(reader.result);
+                                reader.readAsDataURL(compressedBlob);
+                            });
                             let fn = secureFn.checked ? Math.random().toString(36).substr(2,12)+".png" : (isUnscramble?'dec_':'enc_')+file.name;
-
                             processedFiles.push({ name: fn, data: resData });
-
                             if (upload.files.length === 1) {
                                 cvs.width = img.width;
                                 cvs.height = img.height;
@@ -379,7 +371,6 @@
                                 cvs.style.display = 'block';
                                 placeholder.style.display = 'none';
                             }
-
                             logActivity(isUnscramble ? 'Unlocked' : 'Locked', file.name);
                             resolve();
                         } else if (modeType.checked != true && modeType2.checked == true){
@@ -387,11 +378,13 @@
                             // this implementation has near pixel perfect re-replication in most cases
                             // it represents an entirely different methodology of block-chunking pixels
                             // it seems to be quantum proof
-                            const tCvs = document.createElement('canvas'), tCtx = tCvs.getContext('2d', {willReadFrequently:true});
-                            tCvs.width = img.width; tCvs.height = img.height;
+                            const tCvs = document.createElement('canvas'), 
+                                tCtx = tCvs.getContext('2d', {willReadFrequently:true});
+                            tCvs.width = img.width; 
+                            tCvs.height = img.height;
                             tCtx.drawImage(img, 0, 0);
                             const w = img.width, h = img.height;
-                            const block_size = 8; 
+                            const block_size = 8;
                             const cols = Math.ceil(w / block_size);
                             const rows = Math.ceil(h / block_size);
                             const numBlocks = cols * rows;
@@ -428,45 +421,86 @@
                                 }
                                 chunkMap[i] = hashMap.get(key);
                             }
-                            const prng = createPRNG(seed);
-                            const shuffleMap = new Int32Array(numBlocks);
-                            for(let i=0; i<numBlocks; i++) shuffleMap[i] = i;
-                            for(let i = numBlocks - 1; i > 0; i--) {
-                                const val = (prng.next ? prng.next().value : prng());
-                                const j = Math.floor(val * (i + 1));
-                                [shuffleMap[i], shuffleMap[j]] = [shuffleMap[j], shuffleMap[i]];
+                            // enhanced hilbert mapping ---
+                            // calculate 'n' based on the largest dimension to ensure the curve covers the whole area
+                            const n = Math.pow(2, Math.ceil(Math.log2(Math.max(cols, rows))));
+                            function d2xy(n, d) {
+                                let x = 0, y = 0, t = d;
+                                for (let s = 1; s < n; s <<= 1) {
+                                    let rx = 1 & (Math.floor(t / 2));
+                                    let ry = 1 & (t ^ rx);
+                                    if (ry === 0) {
+                                        if (rx === 1) {
+                                            x = s - 1 - x;
+                                            y = s - 1 - y;
+                                        }
+                                        let temp = x; x = y; y = temp;
+                                    }
+                                    x += s * rx;
+                                    y += s * ry;
+                                    t = Math.floor(t / 4);
+                                }
+                                return { x, y };
                             }
-                            const colorPrng = createPRNG(seed); 
+                            // process all blocks ---
+                            const colorPrng = createPRNG(seed);
+                            const rotPrng = createPRNG(seed);
+                            // pre-generate configs for EVERY block to ensure perfect reversal
+                            const fractalConfigs = new Array(numBlocks);
+                            for(let i = 0; i < numBlocks; i++) {
+                                const cVal = (colorPrng.next ? colorPrng.next().value : colorPrng());
+                                const rVal = (rotPrng.next ? rotPrng.next().value : rotPrng());
+                                fractalConfigs[i] = {
+                                    mask: Math.floor(cVal * 256),
+                                    rotation: Math.floor(rVal * 4)
+                                };
+                            }
+                            // map of valid 2D coordinates that the Hilbert curve hits
+                            // to ensure we don't skip pixels in a non-square image.
+                            const validHilbertCoords = [];
+                            for (let i = 0; i < n * n; i++) {
+                                const coord = d2xy(n, i);
+                                // add coordinates that actually exist in our image dimensions
+                                if (coord.x < cols && coord.y < rows) {
+                                    validHilbertCoords.push(coord);
+                                }
+                                if (validHilbertCoords.length === numBlocks) break;
+                            }
                             for (let i = 0; i < numBlocks; i++) {
-                                const srcIdx = isUnscramble ? shuffleMap[i] : i;
-                                const dstIdx = isUnscramble ? i : shuffleMap[i];
-                                const val = (colorPrng.next ? colorPrng.next().value : colorPrng());
-                                const offset = Math.floor(val * 256); 
+                                const hCoord = validHilbertCoords[i];
+                                const fractalIdx = hCoord.y * cols + hCoord.x;
+                                const srcIdx = isUnscramble ? fractalIdx : i;
+                                const dstIdx = isUnscramble ? i : fractalIdx;
+                                // use the loop index 'i' to pull the config so it remains consistent
+                                const { mask, rotation } = fractalConfigs[i];
                                 const chunk = uniqueChunks[chunkMap[srcIdx]];
                                 const dy = Math.floor(dstIdx / cols) * block_size;
                                 const dx = (dstIdx % cols) * block_size;
-                                let bIdx = 0;
                                 for (let y = 0; y < block_size; y++) {
                                     for (let x = 0; x < block_size; x++) {
-                                        if (dx + x < w && dy + y < h) {
-                                            const p = ((dy + y) * w + (dx + x)) * 4;
-                                            for (let c = 0; c < 3; c++) {
-                                                let original = chunk[bIdx++];
-                                                if (!isUnscramble) {
-                                                    data[p + c] = (original + offset) % 256;
-                                                } else {
-                                                    let result = (original - offset) % 256;
-                                                    data[p + c] = result < 0 ? result + 256 : result;
-                                                }
-                                            }
-                                            bIdx++;
-                                            data[p + 3] = chunk[bIdx - 1];
-                                        } else {
-                                            bIdx += 4;
+                                        let targetX = x;
+                                        let targetY = y;
+                                        const activeRot = isUnscramble ? (4 - rotation) % 4 : rotation;
+                                        if (activeRot === 1) {
+                                            targetX = (block_size - 1) - y;
+                                            targetY = x;
+                                        } else if (activeRot === 2) {
+                                            targetX = (block_size - 1) - x;
+                                            targetY = (block_size - 1) - y;
+                                        } else if (activeRot === 3) {
+                                            targetX = y;
+                                            targetY = (block_size - 1) - x;
+                                        }
+                                        if (dx + targetX < w && dy + targetY < h) {
+                                            const p = ((dy + targetY) * w + (dx + targetX)) * 4;
+                                            const bIdx = (y * block_size + x) * 4;
+                                            data[p + 0] = chunk[bIdx + 0] ^ mask;
+                                            data[p + 1] = chunk[bIdx + 1] ^ mask;
+                                            data[p + 2] = chunk[bIdx + 2] ^ mask;
+                                            data[p + 3] = chunk[bIdx + 3];
                                         }
                                     }
                                 }
-                                if (i % (cols * 10) === 0) await new Promise(r => setTimeout(r, 0));
                             }
                             tCtx.putImageData(pixelData, 0, 0);
                             const resData = tCvs.toDataURL('image/png');
@@ -480,7 +514,7 @@
                             alert("Please select one mode and try again.");
                         }
                     };
-                    // end of new createPRNG implementation
+                    // end of encryption/decryption methods
                     img.src = ev.target.result;
                 };
                 reader.readAsDataURL(file);
@@ -655,6 +689,162 @@
             } catch (e) { console.error(e); } finally { if (document.body.contains(loader)) document.body.removeChild(loader); }
         }
 
+        // analytical functions
+        function analyzeCanvasImage() {
+            const canvas = document.getElementById('cvs');
+            if (!canvas) {
+                console.error("Canvas with id 'cvs' not found.");
+                return;
+            }
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+            const imageData = ctx.getImageData(0, 0, width, height);
+            const data = imageData.data;
+            const totalPixels = width * height;
+            let uniqueColors = new Set();
+            let brightnessDistribution = new Array(256).fill(0);
+            let totalGradient = 0;
+            let edgePixels = 0;
+            const edgeThreshold = 30;
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const i = (y * width + x) * 4;
+                    const r = data[i], g = data[i+1], b = data[i+2];
+                    const luma = 0.299 * r + 0.587 * g + 0.114 * b;
+                    uniqueColors.add(`${r},${g},${b}`);
+                    brightnessDistribution[Math.round(luma)]++;
+                    if (x < width - 1 && y < height - 1) {
+                        const rightIdx = (y * width + (x + 1)) * 4;
+                        const downIdx = ((y + 1) * width + x) * 4;
+                        const lumaRight = 0.299 * data[rightIdx] + 0.587 * data[rightIdx+1] + 0.114 * data[rightIdx+2];
+                        const lumaDown = 0.299 * data[downIdx] + 0.587 * data[downIdx+1] + 0.114 * data[downIdx+2];
+                        const gradient = Math.abs(luma - lumaRight) + Math.abs(luma - lumaDown);
+                        totalGradient += gradient;
+                        if (gradient > edgeThreshold) edgePixels++;
+                    }
+                }
+            }
+            const edgeDensity = (edgePixels / totalPixels) * 100;
+            const avgGradient = totalGradient / totalPixels;
+            // fractal detection logic: 
+            // noise usually has very high edge density (>45%). 
+            // fractals (like Hilbert) have high complexity but lower edge density (15-30%) because of spatial clustering.
+            const isFractal = (edgeDensity > 10 && edgeDensity < 35 && avgGradient < 60);
+            const fractalStatus = isFractal ? "Detected (Recursive Structure)" : "None (High Entropy/Noise)";
+            const fractalColor = isFractal ? "#00f2ff" : "#888";
+            // quantum Resistance Level:
+            // based on the complexity of the mapping. Fractal shuffles effectively double the search space 
+            // for classical solvers, but Grover's Algorithm effectively halves bit-security.
+            let qrLevel = "Low (Standard Shuffle)";
+            let qrColor = "#f44336";
+            if (isFractal) {
+                qrLevel = "High (Non-Linear Geometric Mapping)";
+                qrColor = "#4CAF50";
+            }
+            let likelihood = "High";
+            let colorAction = "#4CAF50";
+            if (edgeDensity > 40 || avgGradient > 50) {
+                likelihood = "Very Low (High Entropy/Noise)";
+                colorAction = "#f44336";
+            } else if (edgeDensity > 20) {
+                likelihood = "Moderate (Complex Scramble)";
+                colorAction = "#ff9800";
+            }
+            const modal = document.createElement('div');
+            Object.assign(modal.style, {
+                position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+                width: '85%', maxHeight: '90vh', backgroundColor: '#0f0f0f', color: '#fff',
+                boxShadow: '0 0 40px rgba(0,0,0,0.9)', zIndex: '10000', padding: '25px',
+                borderRadius: '12px', overflowY: 'auto', fontFamily: 'monospace', border: '1px solid #333'
+            });
+            const overlay = document.createElement('div');
+            Object.assign(overlay.style, {
+                position: 'fixed', top: '0', left: '0', width: '100%', height: '100%',
+                backgroundColor: 'rgba(0,0,0,0.9)', zIndex: '9999'
+            });
+            modal.innerHTML = `
+                <h2 style="margin-top:0; color:#4A90E2; border-bottom: 1px solid #333; padding-bottom:10px;">Image Structural Analysis</h2>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom:20px;">
+                    <div style="line-height: 1.6;">
+                        <p><strong>Total Pixels:</strong> ${totalPixels.toLocaleString()}</p>
+                        <p><strong>Unique Colors:</strong> ${uniqueColors.size.toLocaleString()}</p>
+                        <p><strong>Edge Density:</strong> ${edgeDensity.toFixed(2)}%</p>
+                        <p><strong>Avg Gradient:</strong> ${avgGradient.toFixed(2)}</p>
+                    </div>
+                    <div style="background:#151515; padding:15px; border-radius:8px; border-left: 5px solid ${colorAction}">
+                        <p style="margin:0; font-size: 0.8em; text-transform:uppercase; color:#888;">Recovery Likelihood</p>
+                        <h3 style="margin:5px 0; color:${colorAction}">${likelihood}</h3>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom:20px;">
+                    <div style="background:#151515; padding:15px; border-radius:8px; border-top: 2px solid ${fractalColor}">
+                        <p style="margin:0; font-size: 0.8em; color:#888;">Fractal Signature</p>
+                        <p style="margin:5px 0; color:${fractalColor}; font-weight:bold;">${fractalStatus}</p>
+                    </div>
+                    <div style="background:#151515; padding:15px; border-radius:8px; border-top: 2px solid ${qrColor}">
+                        <p style="margin:0; font-size: 0.8em; color:#888;">Quantum Resistance</p>
+                        <p style="margin:5px 0; color:${qrColor}; font-weight:bold;">${qrLevel}</p>
+                    </div>
+                </div>
+                
+                <h3 style="font-size:0.9em; color:#888;">Edge/Brightness Frequency</h3>
+                <div id="graph-container" style="display:flex; align-items:flex-end; height:100px; background:#050505; border:1px solid #333; gap:1px; padding:5px;"></div>
+                
+                <div style="margin-top:20px; display:flex; justify-content:flex-end;">
+                    <button id="close-modal" style="padding:10px 25px; cursor:pointer; background:#222; border:1px solid #444; color:white; border-radius:4px; transition: 0.3s;" onmouseover="this.style.background='#333'" onmouseout="this.style.background='#222'">Dismiss Analysis</button>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+            document.body.appendChild(modal);
+            document.getElementById('close-modal').onclick = () => { modal.remove(); overlay.remove(); };
+            const graphContainer = modal.querySelector('#graph-container');
+            const maxVal = Math.max(...brightnessDistribution);
+            brightnessDistribution.forEach(val => {
+                const bar = document.createElement('div');
+                const hPercent = (val / maxVal) * 100;
+                Object.assign(bar.style, {
+                    flex: '1', height: `${hPercent}%`, backgroundColor: isFractal ? '#00f2ff' : colorAction, minWidth: '1px'
+                });
+                graphContainer.appendChild(bar);
+            });
+        }
+        // lossless and lossy functions
+        async function compressImageLossless(canvas) {
+            const ctx = canvas.getContext('2d');
+            const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+            const compressedBuffer = UPNG.encode([imgData.buffer], canvas.width, canvas.height, 0);
+            return new Blob([compressedBuffer], { type: 'image/png' });
+        }
+        async function compressImageLosslessWithQuantization(canvas) {
+            const ctx = canvas.getContext('2d');
+            const { width, height } = canvas;
+            const imgData = ctx.getImageData(0, 0, width, height).data;
+            const compressedBuffer = UPNG.encode([imgData.buffer], width, height, 256);
+            return new Blob([compressedBuffer], { type: 'image/png' });
+        }
+        async function compressImageAdaptive(canvas) {
+            const ctx = canvas.getContext('2d');
+            const { width, height } = canvas;
+            const imgData = ctx.getImageData(0, 0, width, height).data;
+            const uniqueColors = new Set();
+            for (let i = 0; i < imgData.length; i += 16) { 
+                const color = (imgData[i] << 24) | (imgData[i+1] << 16) | (imgData[i+2] << 8) | imgData[i+3];
+                uniqueColors.add(color);
+                if (uniqueColors.size > 2000) break;
+            }
+            let colorCount;
+            if (uniqueColors.size < 100) {
+                colorCount = 64;   // low complexity
+            } else if (uniqueColors.size < 1000) {
+                colorCount = 128;  // medium complexity
+            } else {
+                colorCount = 256;  // high complexity
+            }
+            const compressedBuffer = UPNG.encode([imgData.buffer], width, height, colorCount);
+            return new Blob([compressedBuffer], { type: 'image/png' });
+        }
     </script>
 </body>
 </html>

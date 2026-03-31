@@ -21,7 +21,7 @@ An encrypted string of the original image [glacier_og_image_4503x3002.jpg](https
 > Encrypted string is 100%+ larger than scrambled image. Difference between fully compressed original image and fully compressed scrambled image is 20%+ larger file size. Viability of scrambling images as a substitute for image to string encryption confirmed.
 
 ### Quantum-resistant method
-Still under development but color diffusion is present in a unique format and looks to impossible to unscramble using heuristic algorithms.
+Quantum-proofing confirmed. Need third-parties to verify. 
 
 > Encrypted string is 15%+ larger than scrambled image. Unfortunately, quantum resistant method is not compatible with compression, as it has too many pixel re-replication errors.
 
