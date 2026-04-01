@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Optimized Unscrambler with Smoothed Feasibility</title>
+<style>
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Segoe UI',sans-serif; background:#121212; color:#ddd; display:flex; flex-direction:column; align-items:center; padding:20px; }
+  h1 { color:#bb86fc; margin-bottom:10px; text-align:center; }
+  p { margin-bottom:20px; text-align:center; }
+  input[type="file"] { margin-bottom:20px; }
+  #container { display:flex; flex-wrap:wrap; gap:20px; justify-content:center; width:100%; max-width:1200px; }
+  .canvas-wrapper { display:flex; flex-direction:column; align-items:center; flex:1 1 300px; }
+  canvas { border:2px solid #bb86fc; border-radius:6px; width:100%; height:auto; background:#1e1e1e; }
+  #status-container { width:100%; max-width:1200px; margin-top:20px; display:flex; flex-direction:column; gap:10px; }
+  #status { padding:15px; background:#1e1e1e; border:2px solid #bb86fc; border-radius:8px; font-family:monospace; white-space:pre-wrap; max-height:200px; overflow-y:auto; color:#ddd; }
+  #progress-wrapper { width:100%; background:#2a2a2a; border-radius:6px; border:1px solid #bb86fc; height:24px; position:relative; }
+  #progress-bar { width:0%; height:100%; background:#bb86fc; border-radius:6px; transition:width 0.1s; }
+  #progress-text { text-align:center; color:#ddd; font-weight:bold; position:absolute; width:100%; top:0; left:0; line-height:24px; }
+  #chart-wrapper { width:100%; max-width:1200px; margin-top:20px; }
+  #feasibilityChart { width:100%; height:150px; border:2px solid #bb86fc; border-radius:8px; background:#1e1e1e; cursor:pointer; }
+  @media (max-width:700px){ #container{flex-direction:column;} }
+</style>
+</head>
+<body>
+
+<h1>Optimized Unscrambler with Smoothed Feasibility</h1>
+<p>Upload Original Image and Scrambled Image to test visual reconstruction.</p>
+
+<input type="file" id="originalInput" accept="image/*">
+<input type="file" id="scrambledInput" accept="image/*">
+
+<div id="container">
+  <div class="canvas-wrapper">
+    <h3 style="color:#bb86fc;">Original Image</h3>
+    <canvas id="originalCanvas" width="256" height="256"></canvas>
+  </div>
+  <div class="canvas-wrapper">
+    <h3 style="color:#bb86fc;">Scrambled Image</h3>
+    <canvas id="scrambledCanvas" width="256" height="256"></canvas>
+  </div>
+  <div class="canvas-wrapper">
+    <h3 style="color:#bb86fc;">Reconstructed Output</h3>
+    <canvas id="outputCanvas" width="256" height="256"></canvas>
+  </div>
+</div>
+
+<div id="status-container">
+  <div id="status"><span>Waiting for images...</span></div>
+  <div id="progress-wrapper">
+    <div id="progress-bar"></div>
+    <div id="progress-text">0%</div>
+  </div>
+  <div id="chart-wrapper">
+    <canvas id="feasibilityChart"></canvas>
+  </div>
+</div>
+
+<script>
+const blockSize = 8;
+const earlyStopThreshold = 10;  // % of feasible blocks
+const minBlocksBeforeCheck = 20; // wait until at least 20 blocks processed
+const slidingWindowSize = 10;    // smooth over last 10 blocks
+
+const status = document.getElementById('status');
+const progressBar = document.getElementById('progress-bar');
+const progressText = document.getElementById('progress-text');
+const chartCanvas = document.getElementById('feasibilityChart');
+const chartCtx = chartCanvas.getContext('2d');
+chartCanvas.width = chartCanvas.clientWidth;
+chartCanvas.height = chartCanvas.clientHeight;
+
+let feasibilityData = [];
+let chartPoints = [];
+
+function updateStatus(msg){ status.innerHTML = `<span>${msg}</span>`; }
+function appendStatus(msg){ status.innerHTML += `\n<span>${msg}</span>`; status.scrollTop = status.scrollHeight; }
+function setProgress(percent){ progressBar.style.width = percent+'%'; progressText.textContent = percent.toFixed(1)+'%'; }
+
+function rotateBlock(block,size,rot){
+  const res = new Uint8ClampedArray(block.length);
+  for(let y=0;y<size;y++){
+    for(let x=0;x<size;x++){
+      let srcX,srcY;
+      if(rot===0){ srcX=x; srcY=y; }
+      else if(rot===1){ srcX=y; srcY=size-1-x; }
+      else if(rot===2){ srcX=size-1-x; srcY=size-1-y; }
+      else if(rot===3){ srcX=size-1-y; srcY=x; }
+      const srcIdx = (srcY*size+srcX)*4;
+      const dstIdx = (y*size+x)*4;
+      for(let i=0;i<4;i++) res[dstIdx+i]=block[srcIdx+i];
+    }
+  }
+  return res;
+}
+
+function getBlocks(imgData,w,h){
+  const cols = Math.ceil(w/blockSize), rows = Math.ceil(h/blockSize);
+  const blocks = [];
+  for(let by=0;by<rows;by++){
+    for(let bx=0;bx<cols;bx++){
+      const block = new Uint8ClampedArray(blockSize*blockSize*4);
+      for(let y=0;y<blockSize;y++){
+        for(let x=0;x<blockSize;x++){
+          const idx = ((by*blockSize+y)*w+(bx*blockSize+x))*4;
+          for(let c=0;c<4;c++) block[(y*blockSize+x)*4+c]=imgData.data[idx+c];
+        }
+      }
+      blocks.push({block,bx,by});
+    }
+  }
+  return {blocks,cols,rows};
+}
+
+function mse(a,b){
+  let sum=0;
+  for(let i=0;i<a.length;i++){ let diff=a[i]-b[i]; sum+=diff*diff; }
+  return sum/a.length;
+}
+
+// Chart drawing
+function drawChart(){
+  chartCtx.clearRect(0,0,chartCanvas.width,chartCanvas.height);
+  chartCtx.strokeStyle='#bb86fc';
+  chartCtx.lineWidth=2;
+  chartCtx.beginPath();
+  chartPoints = [];
+  for(let i=0;i<feasibilityData.length;i++){
+    const x = (i/(feasibilityData.length-1))*chartCanvas.width;
+    const y = chartCanvas.height - (feasibilityData[i]/100)*chartCanvas.height;
+    chartPoints.push({x,y,block:i+1,feasibility:feasibilityData[i]});
+    if(i===0) chartCtx.moveTo(x,y);
+    else chartCtx.lineTo(x,y);
+  }
+  chartCtx.stroke();
+  chartCtx.fillStyle='#bb86fc';
+  chartPoints.forEach(pt=>{ chartCtx.beginPath(); chartCtx.arc(pt.x,pt.y,3,0,2*Math.PI); chartCtx.fill(); });
+}
+
+// Tooltip on hover
+function showTooltip(e){
+  const rect = chartCanvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  let closest=null;
+  let minDist=10;
+  chartPoints.forEach(pt=>{
+    const dx=pt.x-mx;
+    const dy=pt.y-my;
+    const dist=Math.sqrt(dx*dx+dy*dy);
+    if(dist<minDist){ closest=pt; minDist=dist; }
+  });
+  if(closest){
+    const tooltipText=`Block ${closest.block}\nFeasibility: ${closest.feasibility.toFixed(1)}%\nReconstruction likelihood: ${closest.feasibility.toFixed(1)}%`;
+    appendStatus(`\n🔹 ${tooltipText}`);
+  }
+}
+chartCanvas.addEventListener('mousemove', showTooltip);
+
+function appendExplanatoryStatus(i, total, feasibleBlocks, w, h, earlyStop=false){
+  const feasibilityPercent = (feasibleBlocks/(i+1))*100;
+  feasibilityData.push(feasibilityPercent);
+  drawChart();
+  let msg = `Processing block ${i+1}/${total} | Image size: ${w}x${h} | Feasible blocks: ${feasibleBlocks} (${feasibilityPercent.toFixed(1)}%)`;
+  if(earlyStop){
+    msg += `\n\n⚠️ Early stop triggered! Feasible blocks dropped below threshold.\n` +
+           `Statistically unlikely to reconstruct visually.\n` +
+           `Block-based scrambling, rotation, and masking make brute-force reconstruction infeasible without the PRNG key.`;
+  }
+  appendStatus(msg);
+}
+
+function reconstruct(original, scrambled, w, h, outputCanvas){
+  const {blocks: origBlocks} = getBlocks(original,w,h);
+  const {blocks: scrBlocks} = getBlocks(scrambled,w,h);
+  const ctx = outputCanvas.getContext('2d');
+  const total = scrBlocks.length;
+  const batchSize = Math.max(1, Math.floor(total/100));
+  const tolerance = 20;
+  let feasibleBlocks = 0;
+  let i = 0;
+  const imageData = ctx.getImageData(0,0,w,h);
+  const lastBlocks = [];
+
+  function processBatch(){
+    const end = Math.min(i+batchSize,total);
+    for(;i<end;i++){
+      const sblock = scrBlocks[i].block;
+      let bestMSE = Infinity, bestBlock = null;
+      for(let r=0;r<4;r++){
+        const rotated = rotateBlock(sblock,blockSize,r);
+        for(const ob of origBlocks){
+          const e = mse(rotated,ob.block);
+          if(e<bestMSE){ bestMSE=e; bestBlock=rotated; }
+        }
+      }
+
+      const x=scrBlocks[i].bx*blockSize;
+      const y=scrBlocks[i].by*blockSize;
+      for(let byy=0;byy<blockSize;byy++){
+        for(let bxx=0;bxx<blockSize;bxx++){
+          const idx=(byy*blockSize+bxx)*4;
+          const outIdx=((y+byy)*w+(x+bxx))*4;
+          for(let c=0;c<4;c++) imageData.data[outIdx+c]=bestBlock[idx+c];
+        }
+      }
+
+      if(bestMSE<=tolerance) feasibleBlocks++;
+      lastBlocks.push(bestMSE<=tolerance?1:0);
+      if(lastBlocks.length>slidingWindowSize) lastBlocks.shift();
+      const smoothedFeasibility = lastBlocks.reduce((a,b)=>a+b,0)/lastBlocks.length*100;
+
+      if(i>=minBlocksBeforeCheck && smoothedFeasibility<earlyStopThreshold){
+        appendExplanatoryStatus(i, total, feasibleBlocks, w, h, true);
+        ctx.putImageData(imageData,0,0);
+        setProgress((i/total)*100);
+        return;
+      }
+
+      if(i%Math.ceil(total/50)===0) appendExplanatoryStatus(i, total, feasibleBlocks, w, h, false);
+    }
+
+    ctx.putImageData(imageData,0,0);
+    setProgress((i/total)*100);
+
+    if(i<total) requestAnimationFrame(processBatch);
+    else{
+      const feasibilityPercent = (feasibleBlocks/total)*100;
+      appendStatus(`\nReconstruction complete. Feasible blocks: ${feasibleBlocks}/${total} (${feasibilityPercent.toFixed(1)}%)`);
+      if(feasibilityPercent<earlyStopThreshold) appendStatus("Visual reconstruction likely infeasible.");
+      else appendStatus("Some blocks reconstructed correctly; visual comparison needed.");
+      setProgress(100);
+    }
+  }
+
+  processBatch();
+}
+
+let originalImgData=null;
+let scrambledImgData=null;
+
+function handleFileInput(input, callback){
+  const file = input.files[0];
+  if(!file) return;
+  const img = new Image();
+  img.onload = ()=>{
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width; canvas.height = img.height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img,0,0);
+    const imgData = ctx.getImageData(0,0,img.width,img.height);
+    callback(imgData,img.width,img.height);
+  };
+  img.src = URL.createObjectURL(file);
+}
+
+document.getElementById('originalInput').addEventListener('change', e=>{
+  handleFileInput(e.target,(data,w,h)=>{
+    originalImgData=data;
+    const canvas = document.getElementById('originalCanvas');
+    canvas.width=w; canvas.height=h;
+    canvas.getContext('2d').putImageData(data,0,0);
+  });
+});
+
+document.getElementById('scrambledInput').addEventListener('change', e=>{
+  handleFileInput(e.target,(data,w,h)=>{
+    scrambledImgData=data;
+    const canvas = document.getElementById('scrambledCanvas');
+    canvas.width=w; canvas.height=h;
+    canvas.getContext('2d').putImageData(data,0,0);
+
+    if(originalImgData && scrambledImgData){
+      feasibilityData=[];
+      const outputCanvas = document.getElementById('outputCanvas');
+      outputCanvas.width=w; outputCanvas.height=h;
+      updateStatus("Starting reconstruction...");
+      reconstruct(originalImgData,scrambledImgData,w,h,outputCanvas);
+    }
+  });
+});
+</script>
+</body>
+</html>
