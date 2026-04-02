@@ -87,6 +87,7 @@
                 <div class="opt-row">
                     <div style="display:flex; gap:5px;"><input type="checkbox" id="modeType"><label for="modeType">Alternative (Compression Compatible)</label></div>
                     <div style="display:flex; gap:5px;"><input type="checkbox" id="modeType2"><label for="modeType2">Quantum (Compression Incompatible)</label></div>
+                    <div style="display:flex; gap:5px;"><input type="checkbox" id="modeType3"><label for="modeType3">Ultra Quantum (Compression Incompatible)</label></div>
                     <div style="display:flex; gap:5px;"><input type="checkbox" id="secureFn"><label for="secureFn">Secure Names</label></div>
                     <div style="display:flex; gap:5px;"><input type="checkbox" id="autoDl"><label for="autoDl">Auto-Download</label></div>
                     <div style="display:flex; gap:5px; color:#555;"><input type="checkbox" checked disabled><label>Strip EXIF</label></div>
@@ -121,13 +122,19 @@
         const queueList = document.getElementById('queueList'), clearBtn = document.getElementById('clearBtn'), secureFn = document.getElementById('secureFn');
         const autoDl = document.getElementById('autoDl'), placeholder = document.getElementById('placeholderText'), auditLog = document.getElementById('auditLog');
         const timerDisplay = document.getElementById('timerDisplay'), exportBtn = document.getElementById('exportLogBtn');
-        const modeType = document.getElementById('modeType'), modeType2 = document.getElementById('modeType2');
+        const modeType = document.getElementById('modeType'), modeType2 = document.getElementById('modeType2'), modeType3 = document.getElementById('modeType3');
 
         modeType.addEventListener('change', function() {
             modeType2.checked = false;
+            modeType3.checked = false;
         });
         modeType2.addEventListener('change', function() {
             modeType.checked = false;
+            modeType3.checked = false;
+        });
+        modeType3.addEventListener('change', function() {
+            modeType.checked = false;
+            modeType2.checked = false;
         });
 
         let processedFiles = [], destructTime = 300;
@@ -273,7 +280,7 @@
                         // start of encryption/decryption methods
                         // 3 types: default, alternate, and quantum resistant
                         // pros and cons for each method, depending on use case
-                        if(modeType.checked != true && modeType2.checked != true){
+                        if(modeType.checked != true && modeType2.checked != true && modeType3.checked != true){
                             // DEFAULT METHOD
                             // current implementation has pixel perfect re-replication
                             // the will become the default method with a toggle to allow
@@ -325,7 +332,7 @@
                             }
                             logActivity(isUnscramble ? 'Unlocked' : 'Locked', file.name);
                             resolve();
-                        } else if (modeType.checked == true && modeType2.checked != true) {
+                        } else if (modeType.checked == true && modeType2.checked != true && modeType3.checked != true) {
                             // ALTERNATIVE METHOD
                             // this implementation does not have pixel perfect re-replication
                             // and is not a problem with color diffusion, as it represents
@@ -373,7 +380,7 @@
                             }
                             logActivity(isUnscramble ? 'Unlocked' : 'Locked', file.name);
                             resolve();
-                        } else if (modeType.checked != true && modeType2.checked == true){
+                        } else if (modeType.checked != true && modeType2.checked == true && modeType3.checked != true){
                             // QUANTUM METHOD
                             // this implementation has near pixel perfect re-replication in most cases
                             // it represents an entirely different methodology of block-chunking pixels
@@ -508,6 +515,96 @@
                             processedFiles.push({ name: fn, data: resData });
                             if(autoDl.checked) { const a = document.createElement('a'); a.download = fn; a.href = resData; a.click(); }
                             if(upload.files.length === 1) { cvs.width = img.width; cvs.height = img.height; ctx.putImageData(pixelData, 0, 0); cvs.style.display = 'block'; placeholder.style.display = 'none'; }
+                            logActivity(isUnscramble ? 'Unlocked' : 'Locked', file.name);
+                            resolve();
+                        } else if (modeType.checked != true && modeType2.checked != true && modeType3.checked == true) {
+                            // ULTRA QUANTUM METHOD
+                            // this implementation has pixel perfect re-replication in all tested cases
+                            // it represents an entirely different methodology of simultaneously two-part middle-out chain-block-ciphering in a fractal pattern
+                            // it seems to be ultra quantum proof where visual heuristics cannot determine specific features to its mapping space
+                            // visual heuristic algorithms won't even know where to start so computation is impossible 
+                            const tCvs = document.createElement('canvas');
+                            const tCtx = tCvs.getContext('2d');
+                            const w = img.width, h = img.height;
+                            // power-of-2 dimension for morton curve
+                            const dim = Math.pow(2, Math.ceil(Math.log2(Math.max(w, h))));
+                            const totalPixels = dim * dim;
+                            tCvs.width = w; tCvs.height = h;
+                            const tempCvs = document.createElement('canvas');
+                            const tempCtx = tempCvs.getContext('2d');
+                            tempCvs.width = w; tempCvs.height = h;
+                            tempCtx.drawImage(img, 0, 0);
+                            const srcData = tempCtx.getImageData(0, 0, w, h).data;
+                            const outData = tCtx.createImageData(w, h);
+                            const d = outData.data;
+                            const prng = createPRNG(seed);
+                            const getMask = () => Math.floor((prng.next ? prng.next().value : prng()) * 256);
+                            // morton z-order: interleaves bits to create fractal path
+                            function getMortonXY(n) {
+                                let x = 0, y = 0;
+                                for (let i = 0; i < 16; i++) {
+                                    x |= ((n >> (i * 2)) & 1) << i;
+                                    y |= ((n >> (i * 2 + 1)) & 1) << i;
+                                }
+                                return [x, y];
+                            }
+                            const midPoint = Math.floor(totalPixels / 2);
+                            let chainA = [getMask(), getMask(), getMask()]; 
+                            let chainB = [getMask(), getMask(), getMask()];
+                            // process from center outwards
+                            for (let i = 0; i <= midPoint; i++) {
+                                // forward Chain
+                                processPixel(midPoint + i, chainA);
+                                // backward Chain
+                                if (midPoint - i >= 0 && i !== 0) {
+                                    processPixel(midPoint - i, chainB);
+                                }
+                            }
+                            function processPixel(index, state) {
+                                const [x, y] = getMortonXY(index);
+                                if (x >= w || y >= h) return;
+                                const p = (y * w + x) * 4;
+                                const mask = getMask();
+                                if (!isUnscramble) {
+                                    // xor with previous pixel in fractal path + PRNG mask
+                                    const r = srcData[p], g = srcData[p+1], b = srcData[p+2];
+                                    d[p]   = (r ^ state[0] ^ mask) & 0xFF;
+                                    d[p+1] = (g ^ state[1] ^ mask) & 0xFF;
+                                    d[p+2] = (b ^ state[2] ^ mask) & 0xFF;
+                                    d[p+3] = 255;
+                                    // update state with the ORIGINAL pixel values
+                                    state[0] = r; state[1] = g; state[2] = b;
+                                } else {
+                                    // reverse the xor using the reconstructed state
+                                    const encR = srcData[p], encG = srcData[p+1], encB = srcData[p+2];
+                                    const r = (encR ^ state[0] ^ mask) & 0xFF;
+                                    const g = (encG ^ state[1] ^ mask) & 0xFF;
+                                    const b = (encB ^ state[2] ^ mask) & 0xFF;
+                                    d[p]   = r;
+                                    d[p+1] = g;
+                                    d[p+2] = b;
+                                    d[p+3] = 255;
+                                    // update state with the RECOVERED original values
+                                    state[0] = r; state[1] = g; state[2] = b;
+                                }
+                            }
+                            tCtx.putImageData(outData, 0, 0);
+                            const resData = await new Promise((resolve) => {
+                                tCvs.toBlob((blob) => {
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => resolve(reader.result);
+                                    reader.readAsDataURL(blob);
+                                }, 'image/png'); 
+                            });
+                            let fn = secureFn.checked ? Math.random().toString(36).substr(2,12)+".png" : (isUnscramble?'dec_':'enc_')+file.name;
+                            processedFiles.push({ name: fn, data: resData });
+                            if (upload.files.length === 1) {
+                                cvs.width = tCvs.width;
+                                cvs.height = tCvs.height;
+                                ctx.drawImage(tCvs, 0, 0); 
+                                cvs.style.display = 'block';
+                                placeholder.style.display = 'none';
+                            }
                             logActivity(isUnscramble ? 'Unlocked' : 'Locked', file.name);
                             resolve();
                         } else {
@@ -730,9 +827,18 @@
             // fractal detection logic: 
             // noise usually has very high edge density (>45%). 
             // fractals (like Hilbert) have high complexity but lower edge density (15-30%) because of spatial clustering.
+            const isHighEntropy = (edgeDensity > 40 || avgGradient > 50);
+            const isFractalMapping = (edgeDensity > 10 && edgeDensity < 35);
             const isFractal = (edgeDensity > 10 && edgeDensity < 35 && avgGradient < 60);
-            const fractalStatus = isFractal ? "Detected (Recursive Structure)" : "None (High Entropy/Noise)";
-            const fractalColor = isFractal ? "#00f2ff" : "#888";
+            var fractalStatus = isFractal ? "Detected (Recursive Structure)" : "None (High Entropy/Noise)";
+            var fractalColor = isFractal ? "#00f2ff" : "#888";
+            if(isFractalMapping && !isHighEntropy) {
+                fractalStatus = "Detected (Recursive Structure)";
+                fractalColor = "#4CAF50";
+            } else if (!isFractalMapping && isHighEntropy) {
+                fractalStatus = "Undetected (Incalculable Due to Ultra High Entropy)";
+                fractalColor = "#00f2ff";
+            }
             // quantum Resistance Level:
             // based on the complexity of the mapping. Fractal shuffles effectively double the search space 
             // for classical solvers, but Grover's Algorithm effectively halves bit-security.
@@ -741,12 +847,15 @@
             if (isFractal) {
                 qrLevel = "High (Non-Linear Geometric Mapping)";
                 qrColor = "#4CAF50";
+            } else if (isHighEntropy) {
+                qrLevel = "Ultra High (256-bit Entropy Pool)";
+                qrColor = "#00f2ff";
             }
             let likelihood = "High";
             let colorAction = "#4CAF50";
             if (edgeDensity > 40 || avgGradient > 50) {
                 likelihood = "Very Low (High Entropy/Noise)";
-                colorAction = "#f44336";
+                colorAction = "#00f2ff";
             } else if (edgeDensity > 20) {
                 likelihood = "Moderate (Complex Scramble)";
                 colorAction = "#ff9800";

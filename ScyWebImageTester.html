@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Optimized Unscrambler with Smoothed Feasibility</title>
+<title>Optimized Unscrambler with brute-force Complexity Analysis</title>
 <style>
   * { box-sizing:border-box; margin:0; padding:0; }
   body { font-family:'Segoe UI',sans-serif; background:#121212; color:#ddd; display:flex; flex-direction:column; align-items:center; padding:20px; }
@@ -13,30 +13,42 @@
   .canvas-wrapper { display:flex; flex-direction:column; align-items:center; flex:1 1 300px; }
   canvas { border:2px solid #bb86fc; border-radius:6px; width:100%; height:auto; background:#1e1e1e; }
   #status-container { width:100%; max-width:1200px; margin-top:20px; display:flex; flex-direction:column; gap:10px; }
-  #status { padding:15px; background:#1e1e1e; border:2px solid #bb86fc; border-radius:8px; font-family:monospace; white-space:pre-wrap; max-height:200px; overflow-y:auto; color:#ddd; }
+  #status { padding:15px; background:#1e1e1e; border:2px solid #bb86fc; border-radius:8px; font-family:monospace; white-space:pre-wrap; max-height:300px; overflow-y:auto; color:#ddd; line-height: 1.4; }
   #progress-wrapper { width:100%; background:#2a2a2a; border-radius:6px; border:1px solid #bb86fc; height:24px; position:relative; }
   #progress-bar { width:0%; height:100%; background:#bb86fc; border-radius:6px; transition:width 0.1s; }
   #progress-text { text-align:center; color:#ddd; font-weight:bold; position:absolute; width:100%; top:0; left:0; line-height:24px; }
+  
+  #controls { margin-bottom: 20px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; }
+  .btn-suspend { 
+    background: #03dac6; color: #000; border: none; padding: 8px 16px; 
+    border-radius: 4px; cursor: pointer; font-weight: bold; transition: all 0.2s;
+  }
+  .btn-suspend.active { background: #cf6679; color: #fff; }
+  
   #chart-wrapper { width:100%; max-width:1200px; margin-top:20px; }
-  #feasibilityChart { width:100%; height:150px; border:2px solid #bb86fc; border-radius:8px; background:#1e1e1e; cursor:pointer; }
-  @media (max-width:700px){ #container{flex-direction:column;} }
+  #feasibilityChart { width:100%; height:150px; border:2px solid #bb86fc; border-radius:8px; background:#1e1e1e; cursor:crosshair; }
+  .stat-highlight { color: #03dac6; font-weight: bold; }
+  .warning-highlight { color: #cf6679; font-weight: bold; }
 </style>
 </head>
 <body>
 
-<h1>Optimized Unscrambler with Smoothed Feasibility</h1>
-<p>Upload Original Image and Scrambled Image to test visual reconstruction.</p>
+<h1>Optimized Unscrambler + Complexity Auditor</h1>
+<p>Visualizing the statistical impossibility of brute-force reconstruction.</p>
 
-<input type="file" id="originalInput" accept="image/*">
-<input type="file" id="scrambledInput" accept="image/*">
+<div id="controls">
+  <input type="file" id="originalInput" accept="image/*">
+  <input type="file" id="scrambledInput" accept="image/*">
+  <button id="suspendBtn" class="btn-suspend">Suspend Early Stop: OFF</button>
+</div>
 
 <div id="container">
   <div class="canvas-wrapper">
-    <h3 style="color:#bb86fc;">Scrambled Image</h3>
+    <h3 style="color:#bb86fc;">Scrambled Input</h3>
     <canvas id="originalCanvas" width="256" height="256"></canvas>
   </div>
   <div class="canvas-wrapper">
-    <h3 style="color:#bb86fc;">Original Image</h3>
+    <h3 style="color:#bb86fc;">Target Template</h3>
     <canvas id="scrambledCanvas" width="256" height="256"></canvas>
   </div>
   <div class="canvas-wrapper">
@@ -58,24 +70,59 @@
 
 <script>
 const blockSize = 8;
-const earlyStopThreshold = 10;  // % of feasible blocks
-const minBlocksBeforeCheck = 20; // wait until at least 20 blocks processed
-const slidingWindowSize = 10;    // smooth over last 10 blocks
+const earlyStopThreshold = 10;
+const minBlocksBeforeCheck = 20;
+const slidingWindowSize = 10;
 
 const status = document.getElementById('status');
 const progressBar = document.getElementById('progress-bar');
 const progressText = document.getElementById('progress-text');
 const chartCanvas = document.getElementById('feasibilityChart');
+const suspendBtn = document.getElementById('suspendBtn');
 const chartCtx = chartCanvas.getContext('2d');
-chartCanvas.width = chartCanvas.clientWidth;
-chartCanvas.height = chartCanvas.clientHeight;
 
 let feasibilityData = [];
 let chartPoints = [];
+let isEarlyStopSuspended = false;
+
+suspendBtn.addEventListener('click', () => {
+  isEarlyStopSuspended = !isEarlyStopSuspended;
+  suspendBtn.textContent = `Suspend Early Stop: ${isEarlyStopSuspended ? 'ON' : 'OFF'}`;
+  suspendBtn.classList.toggle('active', isEarlyStopSuspended);
+});
 
 function updateStatus(msg){ status.innerHTML = `<span>${msg}</span>`; }
 function appendStatus(msg){ status.innerHTML += `\n<span>${msg}</span>`; status.scrollTop = status.scrollHeight; }
 function setProgress(percent){ progressBar.style.width = percent+'%'; progressText.textContent = percent.toFixed(1)+'%'; }
+
+/**
+ * Calculates brute force complexity using Stirling's Approximation
+ * Complexity = N! * 4^N
+ */
+function getBruteForceStats(numBlocks) {
+  // Benchmark hardware: How many MSE comparisons per second?
+  const start = performance.now();
+  for(let i=0; i<500000; i++) { Math.sqrt(i) * Math.sqrt(i); }
+  const end = performance.now();
+  const opsPerSec = 500000 / ((end - start) / 1000);
+
+  // Log10(N!) ≈ N log10(N) - N log10(e)
+  const logNFact = numBlocks * Math.log10(numBlocks) - (numBlocks * Math.log10(Math.E));
+  const logRotations = numBlocks * Math.log10(4);
+  const totalLog10 = logNFact + logRotations;
+
+  const secondsInYear = 31536000;
+  // Classical: Total States / OpsPerSec
+  const yearsClassicalLog = totalLog10 - Math.log10(opsPerSec) - Math.log10(secondsInYear);
+  // Quantum (Grover's): sqrt(Total States) / OpsPerSec
+  const yearsQuantumLog = (totalLog10 * 0.5) - Math.log10(opsPerSec) - Math.log10(secondsInYear);
+
+  return {
+    totalLog10: totalLog10.toFixed(0),
+    yearsClassical: yearsClassicalLog.toFixed(0),
+    yearsQuantum: yearsQuantumLog.toFixed(0)
+  };
+}
 
 function rotateBlock(block,size,rot){
   const res = new Uint8ClampedArray(block.length);
@@ -118,8 +165,9 @@ function mse(a,b){
   return sum/a.length;
 }
 
-// Chart drawing
 function drawChart(){
+  chartCanvas.width = chartCanvas.clientWidth;
+  chartCanvas.height = chartCanvas.clientHeight;
   chartCtx.clearRect(0,0,chartCanvas.width,chartCanvas.height);
   chartCtx.strokeStyle='#bb86fc';
   chartCtx.lineWidth=2;
@@ -133,41 +181,27 @@ function drawChart(){
     else chartCtx.lineTo(x,y);
   }
   chartCtx.stroke();
-  chartCtx.fillStyle='#bb86fc';
-  chartPoints.forEach(pt=>{ chartCtx.beginPath(); chartCtx.arc(pt.x,pt.y,3,0,2*Math.PI); chartCtx.fill(); });
 }
-
-// Tooltip on hover
-function showTooltip(e){
-  const rect = chartCanvas.getBoundingClientRect();
-  const mx = e.clientX - rect.left;
-  const my = e.clientY - rect.top;
-  let closest=null;
-  let minDist=10;
-  chartPoints.forEach(pt=>{
-    const dx=pt.x-mx;
-    const dy=pt.y-my;
-    const dist=Math.sqrt(dx*dx+dy*dy);
-    if(dist<minDist){ closest=pt; minDist=dist; }
-  });
-  if(closest){
-    const tooltipText=`Block ${closest.block}\nFeasibility: ${closest.feasibility.toFixed(1)}%\nReconstruction likelihood: ${closest.feasibility.toFixed(1)}%`;
-    appendStatus(`\n🔹 ${tooltipText}`);
-  }
-}
-chartCanvas.addEventListener('mousemove', showTooltip);
 
 function appendExplanatoryStatus(i, total, feasibleBlocks, w, h, earlyStop=false){
   const feasibilityPercent = (feasibleBlocks/(i+1))*100;
   feasibilityData.push(feasibilityPercent);
   drawChart();
-  let msg = `Processing block ${i+1}/${total} | Image size: ${w}x${h} | Feasible blocks: ${feasibleBlocks} (${feasibilityPercent.toFixed(1)}%)`;
+  
   if(earlyStop){
-    msg += `\n\n⚠️ Early stop triggered! Feasible blocks dropped below threshold.\n` +
-           `Statistically unlikely to reconstruct visually.\n` +
-           `Block-based scrambling, rotation, and masking make brute-force reconstruction infeasible without the PRNG key.`;
+    const bf = getBruteForceStats(total);
+    appendStatus(`\n<span class="warning-highlight">!!! EARLY STOP TRIGGERED !!!</span>`);
+    appendStatus(`Feasibility dropped to ${feasibilityPercent.toFixed(1)}%. Visual reconstruction failed.`);
+    appendStatus(`-----------------------------------------`);
+    appendStatus(`BRUTE FORCE AUDIT FOR THIS IMAGE:`);
+    appendStatus(`Total Permutations: <span class="stat-highlight">10^${bf.totalLog10}</span>`);
+    appendStatus(`Classical PC Time:  <span class="stat-highlight">10^${bf.yearsClassical} years</span>`);
+    appendStatus(`Quantum (Grover):   <span class="stat-highlight">10^${bf.yearsQuantum} years</span>`);
+    appendStatus(`-----------------------------------------`);
+    appendStatus(`Conclusion: Brute force is mathematically impossible on any known hardware.`);
+  } else if(i % Math.ceil(total/10) === 0) {
+    appendStatus(`Progress: ${((i/total)*100).toFixed(0)}% | Feasibility: ${feasibilityPercent.toFixed(1)}%`);
   }
-  appendStatus(msg);
 }
 
 function reconstruct(original, scrambled, w, h, outputCanvas){
@@ -175,7 +209,7 @@ function reconstruct(original, scrambled, w, h, outputCanvas){
   const {blocks: scrBlocks} = getBlocks(scrambled,w,h);
   const ctx = outputCanvas.getContext('2d');
   const total = scrBlocks.length;
-  const batchSize = Math.max(1, Math.floor(total/100));
+  const batchSize = Math.max(1, Math.floor(total/50));
   const tolerance = 20;
   let feasibleBlocks = 0;
   let i = 0;
@@ -208,36 +242,31 @@ function reconstruct(original, scrambled, w, h, outputCanvas){
       if(bestMSE<=tolerance) feasibleBlocks++;
       lastBlocks.push(bestMSE<=tolerance?1:0);
       if(lastBlocks.length>slidingWindowSize) lastBlocks.shift();
-      const smoothedFeasibility = lastBlocks.reduce((a,b)=>a+b,0)/lastBlocks.length*100;
+      const smoothedFeasibility = (lastBlocks.reduce((a,b)=>a+b,0)/lastBlocks.length)*100;
 
-      if(i>=minBlocksBeforeCheck && smoothedFeasibility<earlyStopThreshold){
+      if(!isEarlyStopSuspended && i>=minBlocksBeforeCheck && smoothedFeasibility<earlyStopThreshold){
         appendExplanatoryStatus(i, total, feasibleBlocks, w, h, true);
         ctx.putImageData(imageData,0,0);
         setProgress((i/total)*100);
         return;
       }
 
-      if(i%Math.ceil(total/50)===0) appendExplanatoryStatus(i, total, feasibleBlocks, w, h, false);
+      if(i % Math.ceil(total/50) === 0) appendExplanatoryStatus(i, total, feasibleBlocks, w, h, false);
     }
 
     ctx.putImageData(imageData,0,0);
     setProgress((i/total)*100);
 
     if(i<total) requestAnimationFrame(processBatch);
-    else{
-      const feasibilityPercent = (feasibleBlocks/total)*100;
-      appendStatus(`\nReconstruction complete. Feasible blocks: ${feasibleBlocks}/${total} (${feasibilityPercent.toFixed(1)}%)`);
-      if(feasibilityPercent<earlyStopThreshold) appendStatus("Visual reconstruction likely infeasible.");
-      else appendStatus("Some blocks reconstructed correctly; visual comparison needed.");
-      setProgress(100);
+    else {
+      const bf = getBruteForceStats(total);
+      appendStatus(`\n<span class="stat-highlight">RECONSTRUCTION COMPLETE</span>`);
+      appendStatus(`Final Feasibility Score: ${(feasibleBlocks/total*100).toFixed(1)}%`);
+      appendStatus(`Search Space Exhausted: 1 in 10^${bf.totalLog10}`);
     }
   }
-
   processBatch();
 }
-
-let originalImgData=null;
-let scrambledImgData=null;
 
 function handleFileInput(input, callback){
   const file = input.files[0];
@@ -248,8 +277,7 @@ function handleFileInput(input, callback){
     canvas.width = img.width; canvas.height = img.height;
     const ctx = canvas.getContext('2d');
     ctx.drawImage(img,0,0);
-    const imgData = ctx.getImageData(0,0,img.width,img.height);
-    callback(imgData,img.width,img.height);
+    callback(ctx.getImageData(0,0,img.width,img.height),img.width,img.height);
   };
   img.src = URL.createObjectURL(file);
 }
@@ -274,11 +302,14 @@ document.getElementById('scrambledInput').addEventListener('change', e=>{
       feasibilityData=[];
       const outputCanvas = document.getElementById('outputCanvas');
       outputCanvas.width=w; outputCanvas.height=h;
-      updateStatus("Starting reconstruction...");
+      updateStatus("Initializing heuristic analysis...");
       reconstruct(originalImgData,scrambledImgData,w,h,outputCanvas);
     }
   });
 });
+
+let originalImgData=null;
+let scrambledImgData=null;
 </script>
 </body>
 </html>

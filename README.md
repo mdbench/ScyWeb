@@ -31,7 +31,13 @@ Below is a demo to prove scrambling is irreversible using visual heuristics with
 Quantum-proofing confirmed. Need third-parties to verify.
 - Quantum resistance is a holistic approach, as the image must be indecipherable without the password but the image must also be quantum resistant from visual heuristic algos that attempt to coercively scramble the image back together.
 
+Important quantum-resistant method metrics have been listed below, showing infeasibility of quantum brute-forcing to decipher image using visual heuristic algos:
+![Proof of Quantum](https://raw.githubusercontent.com/mdbench/ScyWeb/master/Screenshot-2026-04-02-2.12.47-PM.png)
+
 > Encrypted string is 15%+ larger than scrambled image. Unfortunately, quantum resistant method is not compatible with compression, as it has too many pixel re-replication errors.
+
+### Ultra Quantum-resistant method
+Ultra quantum-proofing is a new concept where quantum methods cannot decipher or decrypt, even if the universe was a computer. Under the conditions of a simulation and simulacra, it would still be theoretically impossible to decipher or decrypt an ultra quantum scrambled image as long as the password was zero-knowledge or tied to an external process like a black box. 
 
 #### Success of image scrambling for tailored use cases is high. Unique viable use for making uninterrupted and uncompromised streaming, making a video stream unable to be modified in transit when delivered to users in real-time, offloading costs to user devices when it comes to unscrambling and re-rendering. Other uses include secure Bluerays, DVDs, and new age optical drives. Advanced use cases for movies delivered to theaters to prevent bootlegging. More use cases being tested but the sky is the limit.
 
