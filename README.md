@@ -1,6 +1,12 @@
 # ScyWeb
 ScyWeb is a lightweight, deployable web application that lets users scramble and unscramble image files from a browser.
 
+![ScyWeb Logo](https://raw.githubusercontent.com/mdbench/ScyWeb/master/ScyWebLogo.jpg)
+
+## Working paper
+- [Future academic submission as PDF](https://raw.githubusercontent.com/mdbench/ScyWeb/refs/heads/main/WorkingPaper.pdf)
+- [LaTeX submission version](https://raw.githubusercontent.com/mdbench/ScyWeb/refs/heads/main/WorkingPaper.tex)
+
 ## Why is it called ScyWeb?
 A scytale is an ancient Greek transposition cipher that utilizes a rod and parchment to scramble and unscramble messages. ScyWeb was developed to provide an image cipher experience using web technologies.
 
@@ -39,7 +45,7 @@ Important quantum-resistant method metrics have been listed below, showing infea
 ### Ultra Quantum-resistant method
 Ultra quantum-proofing is a new concept where quantum methods cannot decipher or decrypt, even if the universe was a computer. Under the conditions of a simulation and simulacra, it would still be theoretically impossible to decipher or decrypt an ultra quantum scrambled image as long as the password was zero-knowledge or tied to an external process like a black box. 
 
-#### Success of image scrambling for tailored use cases is high. Unique viable use for making uninterrupted and uncompromised streaming, making a video stream unable to be modified in transit when delivered to users in real-time, offloading costs to user devices when it comes to unscrambling and re-rendering. Other uses include secure Bluerays, DVDs, and new age optical drives. Advanced use cases for movies delivered to theaters to prevent bootlegging. More use cases being tested but the sky is the limit.
+#### Success of image scrambling for tailored use cases is high. Extremely good for private photos. Further use cases below.
 
 ## Movie scrambling
 Lossless compression is not used on unscrambled movies so the original movie might be much smaller when compared to the new unscrambled movie. Scrambled movies are much bigger in their scrambled form than movies that use pixel information sharing, as this gets lost in the enciphering process. This is an area for further development. It means encrypted movies are smaller in size than scrambled movies. Below is a demo showing image scrambling being used on Big Buck Bunny at 1080 and then being converted back to unscrambled. There is no visual difference between the movies before and after scrambling and unscrambling them.
@@ -47,11 +53,23 @@ Lossless compression is not used on unscrambled movies so the original movie mig
 - [Original Big Buck Bunny](https://raw.githubusercontent.com/mdbench/ScyWeb/refs/heads/main/Big_Buck_Bunny_1080_10s_30MB.mp4)
 - [Unscrambled Big Buck Bunny](https://raw.githubusercontent.com/mdbench/ScyWeb/refs/heads/main/enc_BBB_Unscrambled.mp4)
 
+### Success of movie scrambling for tailored use cases is high. Unique viable use for making uninterrupted and uncompromised streaming, making a video stream unable to be modified in transit when delivered to users in real-time, offloading costs to user devices when it comes to unscrambling and re-rendering. Other uses include secure Bluerays, DVDs, and new age optical drives. Advanced use cases for movies delivered to theaters to prevent bootlegging.
+
 ## Audio scrambling
 The audio scrambling methodology takes an audio file, converts it to an image, and scrambles it using the default mode. It saves the resulting file with an mp3 extension, even though it is an image. When you add the scrambled audio file, unscrambling it, it is a perfect replication of the audio file, allowing you to store music in an encrypted format. Since music is already highly diffuse with high entropy, the default mode is sufficient to make the resulting scrambled audio image ultra quantum proof. This audio methodology also creates a 1:1 file size where the original audio file size is the exact size of the resulting scrambled image. You essentially lose nothing storage wise. Because it is unmodifiable without corrupting the audio image, this means it is impossible to modify your copy of whatever audio file you have.
 - [Original MP3 Test File](https://raw.githubusercontent.com/mdbench/ScyWeb/refs/heads/main/ORIGINAL_AUDIO_solarflex-jazz-cafe-music-509921.mp3)
 - [Scrambled MP3 Image with MP3 extension File](https://raw.githubusercontent.com/mdbench/ScyWeb/refs/heads/main/enc_SCRAMBLED_AUDIO_solarflex-jazz-cafe-music-509921_5287680.mp3)
 - [Unscrambled MP3 Image Back to MP3 File](https://raw.githubusercontent.com/mdbench/ScyWeb/refs/heads/main/dec_UNSCRAMBLED_AUDIO_solarflex-jazz-cafe-music-509921.mp3)
+
+### Success of audio scrambling for tailored use cases is extremely high. iTunes or Spotify could integrate this technology into their current database, making a music database compromise impossible. They could also integrate into their platforms, sending the audio image, coding right-before-use/just-in-time conversion, making music impossible to steal from a cache on all Operating Systems. This methodology would download a quantum proof image as a stable data-dependent cache and decrypt right before use in memory. Likely, trillion $ algorithm use case, as no compression lost. 
+
+## Text scrambling
+The text scrambling methodology takes a text file (all text/* files supported), converts it to an image, and scrambles it using the default mode. It saves the resulting file with a txt extension, even though it is an image. When you add the scrambled text file, unscrambling it, it is a perfect replication of the text file, allowing you to store text files in an encrypted format. Since text is already highly diffuse with high entropy, the default mode is sufficient to make the resulting scrambled text image ultra quantum proof. Unfortunately, this text methodology creates text files that are bigger than the originals.
+- [Original TXT Test File](https://raw.githubusercontent.com/mdbench/ScyWeb/refs/heads/main/ORIGINAL_TEXT_test.txt)
+- [Scrambled TXT Image with TXT extension File](https://raw.githubusercontent.com/mdbench/ScyWeb/refs/heads/main/enc_SCRAMBLED_TEXT_test.txt_16.txt)
+- [Unscrambled TXT Image Back to TXT File](https://raw.githubusercontent.com/mdbench/ScyWeb/refs/heads/main/dec_UNSCRAMBLED_TEXT__test.txt)
+
+### Success of text scrambling for tailored use cases is high. Storing text files as pictures could be used for website code files, rendered to user which then JS decrypts dynamically. Quantum resistant websites edited offline and uploaded as pictures render HTTPS and future web technologies obsolete. Website compromise would be meaningless without password, even if hacker got access to source code. Even passwords can be sent as pictures, making them impossible to steal with taffic sniffers, even if website was HTTP.
 
 ## Due-Outs
 - Fix pixel re-replication issue for fully compressed images on alternative method 
@@ -59,8 +77,11 @@ The audio scrambling methodology takes an audio file, converts it to an image, a
 - Fix pixel re-replication issue for fully compressed images on quantum method
     - Severity: High
 - Add bulk image download for all files as a .zip option 
+- Improve User Interface (UI) for Desktop/Mobile devices 
 - Integrate image scrambling into HelioWeb
 - Integrate music scrambling into PhonoWeb
+- Calculate $ amount this project could earn
+- Apply for patents (share patent numbers here)
 
 ## Want to contribute?
 Send me a pull request.
