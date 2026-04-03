@@ -47,6 +47,12 @@ Lossless compression is not used on unscrambled movies so the original movie mig
 - [Original Big Buck Bunny](https://raw.githubusercontent.com/mdbench/ScyWeb/refs/heads/main/Big_Buck_Bunny_1080_10s_30MB.mp4)
 - [Unscrambled Big Buck Bunny](https://raw.githubusercontent.com/mdbench/ScyWeb/refs/heads/main/enc_BBB_Unscrambled.mp4)
 
+## Audio scrambling
+The audio scrambling methodology takes an audio file, converts it to an image, and scrambles it using the default mode. It saves the resulting file with an mp3 extension, even though it is an image. When you add the scrambled audio file, unscrambling it, it is a perfect replication of the audio file, allowing you to store music in an encrypted format. Since music is already highly diffuse with high entropy, the default mode is sufficient to make the resulting scrambled audio image ultra quantum proof. This audio methodology also creates a 1:1 file size where the original audio file size is the exact size of the resulting scrambled image. You essentially lose nothing storage wise. Because it is unmodifiable without corrupting the audio image, this means it is impossible to modify your copy of whatever audio file you have.
+- [Original MP3 Test File](https://raw.githubusercontent.com/mdbench/ScyWeb/refs/heads/main/ORIGINAL_AUDIO_solarflex-jazz-cafe-music-509921.mp3)
+- [Scrambled MP3 Image with MP3 extension File](https://raw.githubusercontent.com/mdbench/ScyWeb/refs/heads/main/enc_SCRAMBLED_AUDIO_solarflex-jazz-cafe-music-509921_5287680.mp3)
+- [Unscrambled MP3 Image Back to MP3 File](https://raw.githubusercontent.com/mdbench/ScyWeb/refs/heads/main/dec_UNSCRAMBLED_AUDIO_solarflex-jazz-cafe-music-509921.mp3)
+
 ## Due-Outs
 - Fix pixel re-replication issue for fully compressed images on alternative method 
     - Severity: Low
@@ -54,6 +60,7 @@ Lossless compression is not used on unscrambled movies so the original movie mig
     - Severity: High
 - Add bulk image download for all files as a .zip option 
 - Integrate image scrambling into HelioWeb
+- Integrate music scrambling into PhonoWeb
 
 ## Want to contribute?
 Send me a pull request.
