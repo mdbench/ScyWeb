@@ -13,6 +13,11 @@ A scytale is an ancient Greek transposition cipher that utilizes a rod and parch
 ## Why do we need it?
 Browsers have become state of the art applications. Many apps available on app stores can be made with wider compatibility for fractions of the code-base and energy. ScyWeb is only 345 lines of code at its base. Cybersecurity is getting harder and harder to achieve and an offline web app makes hacking virtually impossible, a breath of fresh air in a time of insecurity.
 
+## Image Databasing
+[Demo](https://demos.matthewbenchimol.com/ScyWeb/ScyWebDBMaker.html) a new ultra quantum resistant image database methodology. It allows you to batch key queries. Currently under development.
+
+### Success of image databasing is extremely high, as it makes database storage concerns virtually obsolete.
+
 ## Image scrambling
 Lossy compression is not used on unscrambled images so the original image might be much smaller when compared to the new unscrambled image. Preliminary checks have identified scrambled images (alternative method) with lossless compression substantially smaller than images encrypted to plain text and even smaller when used with lossy compression methods, even though there is partial pixel loss (<5%) when lossy compression algos are used. A scrambled image is a much better option than encrypting images as strings and a more secure option than encrypting an entire database or container of images and decrypting that database or container on application boot up. Image scrambling (alternative method) can be used in conjunction with current compression algorithms without causing issues that are not already ocurring with endpoint decoding errors that go through a re-rendering processes to get back original image quality. Unfortunately, the default, quantum, and ultra quantum modes do not show a proof of concept for a smaller scrambled file size when compared to an encrypted strings. Only the alternative mode does.
 
@@ -67,6 +72,11 @@ The text scrambling methodology takes a text file (all text/* files supported), 
 - [Unscrambled TXT Image Back to TXT File](https://raw.githubusercontent.com/mdbench/ScyWeb/refs/heads/main/dec_UNSCRAMBLED_TEXT__test.txt)
 
 ### Success of text scrambling for tailored use cases is high. Storing text files as pictures could be used for website code files, rendered to user which then JS decrypts dynamically. Quantum resistant websites edited offline and uploaded as pictures render HTTPS and future web technologies obsolete. Website compromise would be meaningless without password, even if hacker got access to source code. Even passwords can be sent as pictures, making them impossible to steal with taffic sniffers, even if website was HTTP.
+
+## Proofs, Feasibility, and the Quantum Decoherence Wall
+- [Formal Mathematical Proofing Demo](https://demos.matthewbenchimol.com/ScyWeb/ScyWebMathProof.html)
+- [Reconstruction Feasibility Demo](https://demos.matthewbenchimol.com/ScyWeb/ScyWebImageTester.html)
+- [Explaining the Decoherence Wall Demo](https://demos.matthewbenchimol.com/ScyWeb/ScyWebDecoherenceWall.html)
 
 ## Due-Outs
 - Fix pixel re-replication issue for fully compressed images on alternative method 

@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScyWeb Concepts: Quantum Decoherence Wall</title>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root {
+            --bg-color: #0b0b0e;
+            --container-bg: #121217;
+            --text-primary: #e2e2e9;
+            --text-secondary: #94a3b8;
+            --accent-purple: #c084fc;
+            --border-color: #2e2e38;
+            --fracture-red: #ef4444;
+        }
+
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-color); color: var(--text-primary); margin: 0; padding: 20px; }
+        .container { max-width: 1200px; margin: auto; background: var(--container-bg); padding: 30px; border-radius: 12px; border: 1px solid var(--border-color); box-shadow: 0 15px 40px rgba(0,0,0,0.5); }
+        h1 { color: var(--accent-purple); font-size: 18px; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 25px; text-align: center; }
+        h2 { color: var(--accent-purple); font-size: 1.1em; text-transform: uppercase; margin-top: 0; }
+        p { font-size: 0.9em; line-height: 1.6; color: var(--text-secondary); margin-bottom: 20px; }
+
+        .grid-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+        
+        .theory-panel { display: flex; flex-direction: column; gap: 15px; }
+        .math-card { background: #08080a; padding: 18px; border-radius: 8px; border-left: 4px solid var(--accent-purple); }
+        .math-block { background: #000; padding: 10px; border-radius: 4px; margin: 10px 0; font-size: 0.9em; border: 1px solid #222;}
+
+        .viz-panel { text-align: center; background: #000; padding: 25px; border-radius: 8px; border: 1px solid var(--border-color); }
+        canvas { background: #000; width: 100%; max-width: 450px; aspect-ratio: 1.2; border: 1px solid var(--accent-purple); border-radius: 4px; }
+        
+        .controls { margin-top: 20px; display: flex; gap: 10px; justify-content: center; }
+        button { background: var(--accent-purple); color: #000; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: 800; font-size: 0.7em; text-transform: uppercase; transition: 0.2s; }
+        button:hover { filter: brightness(1.2); transform: translateY(-1px); }
+        button:disabled { background: #444; color: #888; cursor: not-allowed; }
+        .btn-reset { background: #334155; color: #fff; }
+
+        .telemetry { margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 15px; text-align: left; padding-top: 15px; border-top: 1px solid var(--border-color); }
+        .tel-card { background: #1a1a24; padding: 12px; border-radius: 6px; border: 1px solid #2e2e38; }
+        .tel-label { font-size: 0.65em; text-transform: uppercase; color: var(--text-secondary); }
+        .tel-value { font-size: 1.3em; font-weight: 800; color: var(--accent-purple); display: block; }
+        #status-msg { grid-column: span 2; font-family: monospace; font-size: 11px; text-align: center; color: var(--fracture-red); height: 15px;}
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>ScyWeb Core Concepts: The Decoherence Wall</h1>
+    <p>A quantum attack on ScyWeb relies on maintaining complex, fault-tolerant superpositions over time. This visualization demonstrates how increasing environmental noise forces these fragile states to collapse, effectively capping the maximum useful depth \( T_d \) of a quantum calculation.</p>
+
+    <div class="grid-layout">
+        <div class="theory-panel">
+            <div class="math-card">
+                <h2>1. Fragile Superposition</h2>
+                <p>A quantum system \( \psi \) begins in a clean superposition, free from noise. It can theoretically execute infinite fault-tolerant operations \( U \).</p>
+                <div class="math-block">\[ |\psi(t=0)\rangle = \frac{1}{\sqrt{N}}\sum_{i=0}^{N-1}|i\rangle \]</div>
+            </div>
+
+            <div class="math-card">
+                <h2>2. The Wall: Environment Interaction</h2>
+                <p>As time \( t \) progresses, the environment \( E \) entangles with the system. This introduces noise \( \chi \), leading to information leakage and state fracture.</p>
+                <div class="math-block">\[ |\psi(t)\rangle \otimes |E_0\rangle \xrightarrow{U} \sum c_i(t)|i\rangle \otimes |E_i(t)\rangle \]</div>
+            </div>
+
+            <div class="math-card">
+                <h2>3. The Wall: Decoherence (Collapse)</h2>
+                <p>When noise exceeds the fault-tolerant threshold \( \chi > \sigma \), the system "decoheres." The off-diagonal terms vanish, and the system collapses into a classical state.</p>
+                <div class="math-block">\[ \rho_{ij}(t) = \rho_{ij}(0) \cdot e^{-\chi(t)/\sigma} \xrightarrow{t > T_d} 0 \]</div>
+            </div>
+        </div>
+
+        <div class="viz-panel">
+            <canvas id="wallCanvas" width="500" height="400"></canvas>
+            
+            <div class="telemetry">
+                <div class="tel-card">
+                    <span class="tel-label">Grover Iteration Depth (\( t \))</span>
+                    <span id="depth-val" class="tel-value">0</span>
+                </div>
+                <div class="tel-card">
+                    <span class="tel-label">Environmental Noise (\( \chi \))</span>
+                    <span id="noise-val" class="tel-value">0.0%</span>
+                </div>
+                <div id="status-msg">System Coherent. Awaiting Attack Simulation.</div>
+            </div>
+
+            <div class="controls">
+                <button class="btn-reset" onclick="resetSim()">RESET SYSTEM</button>
+                <button id="run-btn" onclick="runSim()">START Grover ATTACK</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('wallCanvas');
+    const ctx = canvas.getContext('2d');
+    const depthVal = document.getElementById('depth-val');
+    const noiseVal = document.getElementById('noise-val');
+    const statusMsg = document.getElementById('status-msg');
+    const runBtn = document.getElementById('run-btn');
+    const W = 500, H = 400;
+    const MAX_DEPTH = 30; 
+
+    let currentDepth = 0, currentNoise = 0, simInterval;
+
+    function initCanvas() {
+        ctx.fillStyle = "#000"; ctx.fillRect(0,0,W,H);
+        ctx.beginPath(); ctx.strokeStyle = "#444"; ctx.lineWidth = 2; ctx.setLineDash([10, 5]);
+        ctx.moveTo(MAX_DEPTH * 15 + 20, 20); ctx.lineTo(MAX_DEPTH * 15 + 20, H - 20); ctx.stroke();
+        ctx.setLineDash([]); 
+        ctx.fillStyle = "#94a3b8"; ctx.font = "12px sans-serif";
+        ctx.fillText("Classical States (Mixed/Noisy)", MAX_DEPTH * 15 + 30, 40);
+        ctx.fillText("Quantum Coherence (Fragile)", 30, 40);
+        ctx.save(); ctx.translate(MAX_DEPTH * 15 + 10, H/2); ctx.rotate(-Math.PI/2);
+        ctx.fillStyle = "#ef4444"; ctx.font = "bold 16px sans-serif";
+        ctx.fillText("DECOHERENCE WALL", -80, 0); ctx.restore();
+    }
+
+    function resetSim() {
+        clearInterval(simInterval);
+        currentDepth = 0; currentNoise = 0;
+        depthVal.innerText = "0"; noiseVal.innerText = "0.0%";
+        statusMsg.innerText = "System Coherent. Awaiting Attack Simulation.";
+        runBtn.disabled = false;
+        initCanvas();
+    }
+
+    function runSim() {
+        runBtn.disabled = true;
+        simInterval = setInterval(simulateIteration, 150);
+    }
+
+    function simulateIteration() {
+        currentDepth++;
+        currentNoise = Math.pow(currentDepth / MAX_DEPTH, 2) * 50;
+        if (currentDepth > MAX_DEPTH) { currentNoise += (currentDepth - MAX_DEPTH) * 10; }
+        
+        depthVal.innerText = currentDepth;
+        noiseVal.innerText = `${currentNoise.toFixed(1)}%`;
+        statusMsg.innerText = "Superposition holding... Computing Grover Operator.";
+
+        drawState();
+
+        if (currentNoise >= 100) {
+            clearInterval(simInterval);
+            statusMsg.innerText = "!!! CRITICAL DECOHERENCE !!! System Fractured to Classical Mixed State.";
+            drawFracture();
+        } else if (currentDepth === MAX_DEPTH) {
+            statusMsg.innerText = "WARNING: Approaching noise wall (sigma threshold). State stability failing.";
+        }
+    }
+
+    function drawState() {
+        const x = currentDepth * 15 + 20;
+        const yBase = H / 2;
+        ctx.beginPath();
+        if(currentDepth <= MAX_DEPTH) {
+            ctx.fillStyle = `rgb(192, 132, 252, ${1 - currentNoise/70})`;
+            ctx.arc(x, yBase, 6, 0, Math.PI * 2);
+        } else {
+            ctx.strokeStyle = `rgb(239, 68, 68, ${0.5})`;
+            ctx.arc(x, yBase, 8, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        ctx.fill();
+    }
+
+    function drawFracture() {
+        const wallX = MAX_DEPTH * 15 + 20;
+        for (let i = 0; i < 40; i++) {
+            const fx = wallX + Math.random() * (W - wallX);
+            const fy = Math.random() * H;
+            ctx.fillStyle = "rgba(239, 68, 68, 0.7)";
+            ctx.fillRect(fx, fy, 4, 4);
+        }
+    }
+
+    window.onload = resetSim;
+</script>
+
+</body>
+</html>

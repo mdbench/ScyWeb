@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScyWeb: MZMO File-to-Matrix Engine</title>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root {
+            --bg-color: #0b0b0e;
+            --container-bg: #121217;
+            --text-primary: #e2e2e9;
+            --text-secondary: #94a3b8;
+            --accent-purple: #c084fc;
+            --border-color: #2e2e38;
+            --success-green: #10b981;
+        }
+
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-color); color: var(--text-primary); margin: 0; padding: 20px; }
+        .container { max-width: 1300px; margin: auto; background: var(--container-bg); padding: 30px; border-radius: 12px; border: 1px solid var(--border-color); }
+        h1 { color: var(--accent-purple); font-size: 18px; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 25px; text-align: center; }
+        
+        .grid-layout { display: grid; grid-template-columns: 1fr 1.3fr; gap: 30px; }
+        
+        .db-panel { display: flex; flex-direction: column; gap: 20px; }
+        .input-group { background: #08080a; padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent-purple); }
+        label { display: block; font-size: 0.7em; text-transform: uppercase; margin-bottom: 8px; color: var(--text-secondary); }
+        input, textarea { width: 100%; background: #1a1a24; border: 1px solid var(--border-color); color: white; padding: 10px; border-radius: 4px; box-sizing: border-box; margin-bottom: 15px; }
+        
+        .viz-panel { text-align: center; background: #000; padding: 20px; border-radius: 8px; border: 1px solid var(--border-color); position: sticky; top: 20px; }
+        canvas { background: #000; width: 100%; max-width: 420px; border: 2px solid var(--accent-purple); image-rendering: pixelated; border-radius: 4px; cursor: crosshair; }
+        
+        .btn-action { width: 100%; background: var(--accent-purple); color: #000; padding: 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: 800; text-transform: uppercase; margin-bottom: 10px; }
+        .btn-query { background: transparent; border: 1px solid var(--accent-purple); color: var(--accent-purple); }
+        .btn-file { background: #1e293b; color: white; border: 1px dashed var(--accent-purple); }
+
+        .log-panel { background: #000; padding: 15px; border-radius: 6px; font-family: monospace; font-size: 11px; color: var(--success-green); height: 180px; overflow-y: auto; border: 1px solid #222; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>ScyWeb Spatial Engine: File Ingestion & MZMO Indexing</h1>
+
+    <div class="grid-layout">
+        <div class="db-panel">
+            <div class="input-group">
+                <label>1. Ingest Database File (.csv)</label>
+                <input type="file" id="file-input" class="btn-file" accept=".csv">
+                <button class="btn-action" style="background:#4c1d95; color:white;" onclick="parseUploadedFile()">Parse into Matrix</button>
+                <p style="font-size:0.6em; color:var(--text-secondary);">Expected format: Key, Value_Metadata</p>
+            </div>
+
+            <div class="input-group">
+                <label>2. Manual Add / Update</label>
+                <input type="text" id="db-key" placeholder="Key (e.g. User_01)">
+                <textarea id="db-value" rows="2" placeholder="Payload..."></textarea>
+                <button class="btn-action" onclick="writeData()">Commit to Address</button>
+            </div>
+
+            <div class="input-group">
+                <label>3. Spatial Query</label>
+                <input type="text" id="query-key" placeholder="Enter Key to Search">
+                <button class="btn-action btn-query" onclick="queryData()">Fetch Payload</button>
+            </div>
+
+            <div class="log-panel" id="db-log">[SYSTEM READY] Use File Ingest to populate MZMO addresses.</div>
+        </div>
+
+        <div class="viz-panel">
+            <label>MZMO Active Memory Map</label>
+            <canvas id="dbCanvas" width="256" height="256"></canvas>
+            <div class="log-panel" style="height:80px; margin-top:10px; color:#94a3b8; border:none;" id="stats-log">
+                Entries: 0 | Address Utilization: 0%
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('dbCanvas');
+    const ctx = canvas.getContext('2d');
+    const log = document.getElementById('db-log');
+    const statsLog = document.getElementById('stats-log');
+    const S = 256;
+    let spatialDatabase = {}; 
+
+    function addLog(msg, color="#10b981") {
+        log.innerHTML += `<div style="color:${color}">> ${msg}</div>`;
+        log.scrollTop = log.scrollHeight;
+    }
+
+    function getMorton(x, y) {
+        let z = 0;
+        for (let i = 0; i < 8; i++) {
+            z |= (x & (1 << i)) << i | (y & (1 << i)) << (i + 1);
+        }
+        return z;
+    }
+
+    function hashToCoords(key) {
+        let hash = 0;
+        for (let i = 0; i < key.length; i++) hash = key.charCodeAt(i) + ((hash << 5) - hash);
+        return { x: Math.abs(hash % S), y: Math.abs((hash >> 8) % S) };
+    }
+
+    function updateStats() {
+        const totalEntries = Object.values(spatialDatabase).reduce((a, b) => a + b.length, 0);
+        const utilization = ((Object.keys(spatialDatabase).length / (S*S)) * 100).toFixed(2);
+        statsLog.innerHTML = `Entries: ${totalEntries} | Address Utilization: ${utilization}%`;
+    }
+
+    function init() {
+        ctx.fillStyle = "#050507"; ctx.fillRect(0, 0, S, S);
+    }
+
+    // --- FILE PARSING LOGIC ---
+    function parseUploadedFile() {
+        const fileInput = document.getElementById('file-input');
+        if (!fileInput.files[0]) return alert("Please select a .csv file.");
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const text = e.target.result;
+            const rows = text.split('\n');
+            let count = 0;
+
+            rows.forEach(row => {
+                const parts = row.split(',');
+                if (parts.length >= 2) {
+                    const key = parts[0].trim();
+                    const val = parts.slice(1).join(',').trim();
+                    commitToMemory(key, val);
+                    count++;
+                }
+            });
+            addLog(`FILE INGEST COMPLETE: ${count} rows indexed spatially.`, "#c084fc");
+            updateStats();
+        };
+        reader.readAsText(fileInput.files[0]);
+    }
+
+    function commitToMemory(key, payload) {
+        const { x, y } = hashToCoords(key);
+        const addressKey = `${x},${y}`;
+        if (!spatialDatabase[addressKey]) spatialDatabase[addressKey] = [];
+        spatialDatabase[addressKey].push({ key, payload });
+
+        const intensity = Math.min(spatialDatabase[addressKey].length * 50, 255);
+        ctx.fillStyle = `rgb(${intensity}, ${intensity/2}, 255)`;
+        ctx.fillRect(x, y, 1, 1);
+    }
+
+    function writeData() {
+        const k = document.getElementById('db-key').value;
+        const v = document.getElementById('db-value').value;
+        if(!k) return;
+        commitToMemory(k, v);
+        addLog(`MANUAL COMMIT: [${k}] mapped to matrix.`);
+        updateStats();
+    }
+
+    function queryData() {
+        const key = document.getElementById('query-key').value.trim();
+        const { x, y } = hashToCoords(key);
+        const bucket = spatialDatabase[`${x},${y}`];
+
+        if (bucket) {
+            const results = bucket.filter(r => r.key === key);
+            if (results.length > 0) {
+                addLog(`QUERY SUCCESS: [${key}] found.`, "white");
+                results.forEach(r => addLog(`DATA: ${r.payload}`, "#94a3b8"));
+                ctx.strokeStyle = "white"; ctx.strokeRect(x-2, y-2, 5, 5);
+            } else {
+                addLog("Collision detected: Key not in this bucket.", "#ef4444");
+            }
+        } else {
+            addLog("No entry at spatial coordinate.", "#ef4444");
+        }
+    }
+
+    window.onload = init;
+</script>
+</body>
+</html>
