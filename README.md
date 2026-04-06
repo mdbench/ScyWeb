@@ -14,7 +14,9 @@ A scytale is an ancient Greek transposition cipher that utilizes a rod and parch
 Browsers have become state of the art applications. Many apps available on app stores can be made with wider compatibility for fractions of the code-base and energy. ScyWeb is only 345 lines of code at its base. Cybersecurity is getting harder and harder to achieve and an offline web app makes hacking virtually impossible, a breath of fresh air in a time of insecurity.
 
 ## Image Databasing
-[Demo](https://demos.matthewbenchimol.com/ScyWeb/ScyWebDBMaker.html) a new ultra quantum resistant image database methodology. It allows you to batch key queries. Currently under development.
+- [Demo](https://demos.matthewbenchimol.com/ScyWeb/ScyWebDBMaker.html) a new ultra quantum resistant image database methodology. It allows you to batch nosql key queries.
+- [Demo](https://demos.matthewbenchimol.com/ScyWeb/ScyWebSQLTester.html) a new quantum resistant image database methodology. It allows you to use SQL queries. 
+- An SDK is still under development as a working prototype.
 
 ### Success of image databasing is extremely high, as it makes database storage concerns virtually obsolete.
 

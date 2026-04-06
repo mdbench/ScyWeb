@@ -1,0 +1,11 @@
+{
+    "name": "scyweb-kernel-react-native",
+    "version": "1.0.0",
+    "scripts": {
+      "test": "node test_vines.js"
+    },
+    "dependencies": {
+      "buffer": "^6.0.3",
+      "react-native-quick-crypto": "^0.6.1"
+    }
+  }

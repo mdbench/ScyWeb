@@ -1,0 +1,12 @@
+{
+    "name": "scyweb-kernel-node",
+    "version": "1.0.0",
+    "description": "Node.js implementation of the ScyWeb Kernel",
+    "main": "ScyKernel.js",
+    "scripts": {
+      "test": "node test_vines.js"
+    },
+    "dependencies": {
+      "buffer": "^6.0.3"
+    }
+  }

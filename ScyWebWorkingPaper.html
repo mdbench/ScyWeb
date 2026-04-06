@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>ScyWeb // LaTeX Editor</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.4/ace.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <style>
+        :root { --bg: #07030d; --panel: #120b1f; --purple: #9d4edd; --yellow: #ffea00; --text: #d0c4f5; }
+        body, html { margin: 0; padding: 0; width: 100vw; height: 100vh; background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; overflow: hidden; }
+        
+        #loader { position: fixed; inset: 0; background: var(--bg); z-index: 10000; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        .bar-bg { width: 300px; height: 2px; background: #1a1429; margin: 20px 0; }
+        #bar { width: 0%; height: 100%; background: var(--purple); box-shadow: 0 0 15px var(--purple); transition: 0.3s; }
+
+        header { height: 45px; background: var(--panel); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; border-bottom: 2px solid var(--purple); }
+        .workspace { display: flex; flex: 1; height: calc(100vh - 45px); overflow: hidden; }
+        .pane { flex: 1; display: flex; flex-direction: column; border-right: 1px solid #2d1b4d; position: relative; }
+        .toolbar { height: 38px; background: #160f26; display: flex; align-items: center; gap: 8px; padding: 0 15px; border-bottom: 1px solid var(--purple); }
+        
+        #editor-container { flex: 1; position: relative; background: #000; }
+        #editor { position: absolute; inset: 0; }
+        #preview { flex: 1; background: #1a1a1a; overflow-y: auto; padding: 40px; display: flex; flex-direction: column; align-items: center; }
+        
+        #paper { 
+            background: white; color: black; width: 8.5in;
+            padding: 1in; box-shadow: 0 0 40px #000; box-sizing: border-box;
+            font-family: "Times New Roman", serif; font-size: 11pt; line-height: 1.5; 
+        }
+
+        .btn { background: transparent; border: 1px solid var(--purple); color: var(--purple); padding: 4px 10px; cursor: pointer; font-size: 10px; font-weight: bold; text-transform: uppercase; }
+        .btn:hover { background: var(--purple); color: white; }
+        .status-tag { font-size: 9px; padding: 2px 6px; border: 1px solid var(--yellow); color: var(--yellow); letter-spacing: 1px; }
+        input[type="file"], canvas { display: none; }
+        
+        .latex-title { text-align: center; font-size: 16pt; font-weight: bold; margin-bottom: 10px; margin-top: 20px; }
+        .latex-author { text-align: center; font-size: 12pt; margin-bottom: 5px; }
+        .latex-date { text-align: center; font-size: 12pt; margin-bottom: 30px; }
+        .latex-abstract { margin: 1.5em 2.5em; font-size: 10pt; text-align: justify; border-top: 0.5px solid #eee; border-bottom: 0.5px solid #eee; padding: 10px 0; }
+        .latex-abstract b { display: block; text-align: center; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }
+        .latex-table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 10pt; }
+        .latex-table td, .latex-table th { border-top: 1px solid black; border-bottom: 1px solid black; padding: 8px; text-align: left; }
+        .latex-figure { width: 100%; border: 1px solid #ddd; padding: 20px; margin: 20px 0; background: #fafafa; text-align: center; }
+        .bcnn-placeholder { width: 100%; height: 120px; border: 1px dashed #ccc; display: flex; align-items: center; justify-content: center; font-family: monospace; font-size: 8pt; color: #777; }
+        .latex-caption { font-size: 9pt; margin-top: 10px; font-style: italic; }
+    </style>
+</head>
+<body>
+
+<div id="loader">
+    <div style="color:var(--yellow); font-weight:bold; letter-spacing:5px;">SCYWEB // LaTeX Editor</div>
+    <div class="bar-bg"><div id="bar"></div></div>
+    <button class="btn" onclick="initVFS()">Initialize LaTeX Editor</button>
+</div>
+
+<header>
+    <div style="display:flex; align-items:center;">
+        <div style="width:4px; height:18px; background:var(--yellow); transform:skewX(-25deg); margin-right:12px;"></div>
+        <span style="letter-spacing:1px; font-weight:bold;">SCYWEB // LaTeX Editor</span>
+    </div>
+    <div style="display:flex; gap:10px;">
+        <div id="vfs-status" class="status-tag">VFS: STANDBY</div>
+        <div id="wasm-status" class="status-tag">WASM: DISCONNECTED</div>
+    </div>
+</header>
+
+<div class="workspace">
+    <div class="pane">
+        <div class="toolbar">
+            <button class="btn" onclick="document.getElementById('wasm-in').click()">Sync .wasm</button>
+            <input type="file" id="wasm-in" accept=".wasm" onchange="syncWasmBinary(this)">
+            <button class="btn" onclick="mountProjectFolder()">Mount VFS</button>
+            <button class="btn" onclick="document.getElementById('fin').click()">Import .tex / .png</button>
+            <input type="file" id="fin" accept=".tex,.png" onchange="smartImport(this)">
+            <button class="btn" style="border-color:var(--yellow); color:var(--yellow);" onclick="exportMZMO()">Export MZMO</button>
+            <input type="password" id="seed" placeholder="Seed" style="background:#000; border:1px solid #444; color:var(--yellow); font-size:10px; width:60px;">
+        </div>
+        <div id="editor-container"><div id="editor"></div></div>
+    </div>
+    <div class="pane" style="border-right:none;">
+        <div class="toolbar">
+            <span>PREVIEW // PRECISION</span>
+            <button class="btn" style="margin-left:auto; border-color:var(--yellow); color:var(--yellow);" onclick="renderPDF()">Export PDF</button>
+        </div>
+        <div id="preview"><div id="paper"></div></div>
+    </div>
+</div>
+
+<script>
+    let aceEditor;
+    let dirHandle;
+    let wasmModule = null;
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+
+    async function loadTexFile() {
+        try {
+            const response = await fetch("WorkingPaper.tex");
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            aceEditor.session.setValue(await response.text());
+            console.log(`Successfully loaded .tex file.`);
+        } catch (error) {
+            console.error("Failed to fetch .tex file:", error);
+        }
+    }
+
+    async function initVFS() {
+        let p = 0;
+        const itv = setInterval(() => {
+            p += 25; document.getElementById('bar').style.width = p + "%";
+            if(p >= 100) { clearInterval(itv); document.getElementById('loader').style.display = 'none'; initAce(); loadTexFile();}
+        }, 80);
+    }
+
+    async function syncWasmBinary(input) {
+        const file = input.files[0];
+        if (!file) return;
+        const buffer = await file.arrayBuffer();
+        try {
+            const { instance } = await WebAssembly.instantiate(buffer, { env: { memory: new WebAssembly.Memory({ initial: 512 }), abort: () => {} } });
+            wasmModule = instance;
+            document.getElementById('wasm-status').innerText = `WASM: ACTIVE`;
+            document.getElementById('wasm-status').style.color = "#00ff00";
+        } catch (e) { alert("WASM Sync Failed."); }
+    }
+
+    async function mountProjectFolder() {
+        try {
+            dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+            document.getElementById('vfs-status').innerText = `VFS: MOUNTED`;
+            document.getElementById('vfs-status').style.color = "#00ff00";
+        } catch (e) { console.warn("VFS cancelled."); }
+    }
+
+    function initAce() {
+        aceEditor = ace.edit("editor");
+        aceEditor.setTheme("ace/theme/twilight");
+        aceEditor.session.setMode("ace/mode/latex");
+        aceEditor.on("change", renderLaTeX);
+    }
+
+    // --- PRECISION RENDERER ---
+    function renderLaTeX() {
+        let raw = aceEditor.getValue();
+        
+        // Extract Macros with formatting removal
+        const getTag = (str, tag) => {
+            let m = str.match(new RegExp(`\\\\${tag}\\{(.*?)\\}`, 's'));
+            return m ? m[1].replace(/\\textbf\{(.*?)\}/g, '$1').replace(/\\textit\{(.*?)\}/g, '$1') : '';
+        };
+
+        const title = getTag(raw, 'title');
+        const author = getTag(raw, 'author');
+        const date = getTag(raw, 'date');
+
+        let body = raw.replace(/\\documentclass[\s\S]*?\\begin\{document\}/, '');
+        body = body.replace(/\\end\{document\}/, '');
+        body = body.replace(/\\usepackage\{.*?\}/g, '');
+
+        body = body.replace(/\\maketitle/g, `
+            <div class="latex-title">${title || 'ScyWeb Research Draft'}</div>
+            <div class="latex-author">${author}</div>
+            <div class="latex-date">${date}</div>
+        `);
+
+        let html = body
+            .replace(/\\section\{(.*?)\}/g, '<h2 style="font-size: 14pt; border-bottom: 1px solid #000; margin-top:20px;">$1</h2>')
+            .replace(/\\subsection\{(.*?)\}/g, '<h3 style="font-size: 12pt;">$1</h3>')
+            .replace(/\\begin\{abstract\}([\s\S]*?)\\end\{abstract\}/g, '<div class="latex-abstract"><b>Abstract</b>$1</div>')
+            // Equation fixes: ensures $...$ and \quad are handled for MathJax
+            .replace(/\$(.*?)\$/g, '<span class="math-inline">\\($1\\)</span>')
+            .replace(/\\begin\{equation\}([\s\S]*?)\\end\{equation\}/g, '$$$1$$')
+            .replace(/\\\[([\s\S]*?)\\\]/g, '$$$1$$')
+            // Table support
+            .replace(/\\begin\{table\}[\s\S]*?\\begin\{tabular\}\{.*?\}[\s\S]*?([\s\S]*?)\\end\{tabular\}[\s\S]*?\\caption\{(.*?)\}[\s\S]*?\\end\{table\}/g, (m, content, caption) => {
+                let rows = content.trim().split('\\\\').map(row => row.includes('&') ? `<tr>${row.split('&').map(cell => `<td>${cell.trim()}</td>`).join('')}</tr>` : '').join('');
+                return `<div style="text-align:center;"><table class="latex-table">${rows}</table><div class="latex-caption">Table: ${caption}</div></div>`;
+            })
+            // Figure support
+            .replace(/\\begin\{figure\}[\s\S]*?\\caption\{(.*?)\}[\s\S]*?\\end\{figure\}/g, '<div class="latex-figure"><div class="bcnn-placeholder">BIT-STREAM DECOHERENCE ANALYSIS</div><div class="latex-caption">Figure: $1</div></div>')
+            .replace(/\\textit\{(.*?)\}/g, '<i>$1</i>')
+            .replace(/\\textbf\{(.*?)\}/g, '<strong>$1</strong>');
+
+        document.getElementById('paper').innerHTML = html;
+        if (window.MathJax) MathJax.typesetPromise();
+    }
+
+    async function renderPDF() {
+        const element = document.getElementById('paper');
+        html2pdf().set({
+            margin: 0.5,
+            filename: 'ScyWeb_Precision_Draft.pdf',
+            image: { type: 'jpeg', quality: 1 },
+            html2canvas: { scale: 3, useCORS: true },
+            jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+        }).from(element).save();
+    }
+
+    // --- MZMO DUAL-CHAIN LOGIC (STRICT v2.1) ---
+    function getMortonXY(n) {
+        let x = 0, y = 0;
+        for (let i = 0; i < 16; i++) {
+            x |= ((n >> (i * 2)) & 1) << i;
+            y |= ((n >> (i * 2 + 1)) & 1) << i;
+        }
+        return [x, y];
+    }
+
+    function createPRNG(hashBuffer) {
+        const state = new Uint32Array(hashBuffer); 
+        let cnt = 0;
+        const mix = (a, b, c, d) => {
+            a = (a + b) | 0; d ^= a; d = (d << 16) | (d >>> 16);
+            c = (c + d) | 0; b ^= c; b = (b << 12) | (b >>> 20);
+            a = (a + b) | 0; d ^= a; d = (d << 8) | (d >>> 24);
+            c = (c + d) | 0; b ^= c; b = (b << 7) | (b >>> 25);
+            return [a, b, c, d];
+        };
+        return () => {
+            cnt++;
+            let w = new Uint32Array(state);
+            w[0] ^= cnt;
+            for (let i = 0; i < 10; i++) {
+                [w[0],w[1],w[2],w[3]] = mix(w[0],w[1],w[2],w[3]);
+                [w[4],w[5],w[6],w[7]] = mix(w[4],w[5],w[6],w[7]);
+            }
+            return (w[0] >>> 0) / 4294967296;
+        };
+    }
+
+    async function smartImport(input) {
+        const file = input.files[0];
+        if (!file) return;
+        if (file.name.endsWith('.tex')) {
+            aceEditor.session.setValue(await file.text());
+        } else if (file.name.endsWith('.png')) {
+            const img = new Image();
+            img.onload = async () => {
+                canvas.width = img.width; canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+                const src = ctx.getImageData(0, 0, img.width, img.height).data;
+                const seed = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(document.getElementById('seed').value || "scyweb"));
+                const prng = createPRNG(seed);
+                const mid = Math.floor((img.width * img.height) / 2);
+                let cA = [Math.floor(prng()*256),Math.floor(prng()*256),Math.floor(prng()*256)];
+                let cB = [Math.floor(prng()*256),Math.floor(prng()*256),Math.floor(prng()*256)];
+                let rec = [];
+
+                const unscramble = (idx, st) => {
+                    const [x, y] = getMortonXY(idx);
+                    if (x >= img.width || y >= img.height) return;
+                    const p = (y * img.width + x) * 4;
+                    const m = Math.floor(prng()*256);
+                    const r = (src[p] ^ st[0] ^ m) & 0xFF, g = (src[p+1] ^ st[1] ^ m) & 0xFF, b = (src[p+2] ^ st[2] ^ m) & 0xFF;
+                    rec.push(r, g, b); st[0] = r; st[1] = g; st[2] = b;
+                };
+
+                for (let i = 0; i <= mid; i++) {
+                    unscramble(mid + i, cA);
+                    if (mid - i >= 0 && i !== 0) unscramble(mid - i, cB);
+                }
+
+                let rawStr = "";
+                for(let i=0; i<rec.length; i++) {
+                    if(rec[i] === 0) break;
+                    rawStr += String.fromCharCode(rec[i]);
+                }
+                try { aceEditor.session.setValue(decodeURIComponent(escape(atob(rawStr)))); } 
+                catch(e) { alert("Decode Error: Seed Mismatch."); }
+            };
+            img.src = URL.createObjectURL(file);
+        }
+    }
+
+    async function exportMZMO() {
+        const text = aceEditor.getValue();
+        const b64 = btoa(unescape(encodeURIComponent(text)));
+        const data = new Uint8Array(b64.length + 1);
+        for(let i=0; i<b64.length; i++) data[i] = b64.charCodeAt(i);
+        data[b64.length] = 0;
+
+        const dim = Math.pow(2, Math.ceil(Math.log2(Math.sqrt(data.length / 3) + 32)));
+        canvas.width = dim; canvas.height = dim;
+        const out = ctx.createImageData(dim, dim);
+        const seed = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(document.getElementById('seed').value || "scyweb"));
+        const prng = createPRNG(seed);
+        const mid = Math.floor((dim * dim) / 2);
+        let cA = [Math.floor(prng()*256),Math.floor(prng()*256),Math.floor(prng()*256)];
+        let cB = [Math.floor(prng()*256),Math.floor(prng()*256),Math.floor(prng()*256)];
+        let ptr = 0;
+
+        const process = (idx, st) => {
+            const [x, y] = getMortonXY(idx);
+            if (x >= dim || y >= dim) return;
+            const p = (y * dim + x) * 4;
+            const m = Math.floor(prng()*256);
+            let r = ptr < data.length ? data[ptr++] : 0, g = ptr < data.length ? data[ptr++] : 0, b = ptr < data.length ? data[ptr++] : 0;
+            out.data[p] = (r ^ st[0] ^ m) & 0xFF; out.data[p+1] = (g ^ st[1] ^ m) & 0xFF; out.data[p+2] = (b ^ st[2] ^ m) & 0xFF; out.data[p+3] = 255;
+            st[0] = r; st[1] = g; st[2] = b;
+        };
+
+        for (let i = 0; i <= mid; i++) {
+            process(mid + i, cA);
+            if (mid - i >= 0 && i !== 0) process(mid - i, cB);
+        }
+        ctx.putImageData(out, 0, 0);
+        const a = document.createElement('a');
+        a.download = `SCYWEB_EXPORT.png`;
+        a.href = canvas.toDataURL("image/png");
+        a.click();
+    }
+</script>
+</body>
+</html>

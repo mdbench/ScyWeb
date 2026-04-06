@@ -1,0 +1,116 @@
+name: ScyWeb Kernel Parity Check
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-kernels:
+    # Swift runs on macOS for native toolchain access; others run on Ubuntu
+    runs-on: ${{ matrix.kernel == 'swift' && 'macos-latest' || 'ubuntu-latest' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # 10 Languages, strictly lowercase 
+        kernel: [python, javascript, cpp, go, java, rust, kotlin, php, react-native, swift]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize Global Test Image
+        run: mkdir -p vines_images
+
+      # --- RUST (Edition 2024) ---
+      - name: Setup Rust
+        if: matrix.kernel == 'rust'
+        uses: dtolnay/rust-toolchain@stable
+      - name: Run Rust Test
+        if: matrix.kernel == 'rust'
+        run: |
+          cd sdk/rust
+          cargo run --bin test_vines
+
+      # --- PYTHON ---
+      - name: Setup Python
+        if: matrix.kernel == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run Python Test
+        if: matrix.kernel == 'python'
+        run: |
+          cd sdk/python
+          pip install -r requirements.txt
+          python test_vines.py
+
+      # --- JAVASCRIPT & REACT NATIVE ---
+      - name: Setup Node.js
+        if: matrix.kernel == 'javascript' || matrix.kernel == 'react-native'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run Node-based Tests
+        if: matrix.kernel == 'javascript' || matrix.kernel == 'react-native'
+        run: |
+          cd sdk/${{ matrix.kernel }}
+          npm install
+          node test_vines.js
+
+      # --- C++ (OpenSSL) ---
+      - name: Install OpenSSL
+        if: matrix.kernel == 'cpp'
+        run: sudo apt-get update && sudo apt-get install -y libssl-dev
+      - name: Run C++ Test
+        if: matrix.kernel == 'cpp'
+        run: |
+          cd sdk/cpp
+          make
+          ./test_vines
+
+      # --- GO ---
+      - name: Setup Go
+        if: matrix.kernel == 'go'
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+      - name: Run Go Test
+        if: matrix.kernel == 'go'
+        run: |
+          cd sdk/go
+          go run test_vines.go
+
+      # --- JAVA & KOTLIN ---
+      - name: Setup Java/Kotlin
+        if: matrix.kernel == 'java' || matrix.kernel == 'kotlin'
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - name: Run JVM Tests
+        if: matrix.kernel == 'java' || matrix.kernel == 'kotlin'
+        run: |
+          cd sdk/${{ matrix.kernel }}
+          if [ "${{ matrix.kernel }}" == "java" ]; then
+            javac ScyKernel.java test_vines.java && java test_vines
+          else
+            # Install Kotlin compiler on Ubuntu runner
+            sudo apt-get update && sudo apt-get install -y kotlin
+            kotlinc ScyKernel.kt test_vines.kt -include-runtime -d test.jar && java -jar test.jar
+          fi
+
+      # --- PHP ---
+      - name: Run PHP Test
+        if: matrix.kernel == 'php'
+        run: |
+          cd sdk/php
+          php test_vines.php
+
+      # --- SWIFT ---
+      - name: Run Swift Test
+        if: matrix.kernel == 'swift'
+        run: |
+          cd sdk/swift
+          # Use swift interpret mode for a single file test
+          swift test_vines.swift

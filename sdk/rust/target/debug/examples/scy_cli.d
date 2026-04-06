@@ -1,0 +1,1 @@
+/home/mdbench/Development/GitHub/ScyWeb/sdk/rust/target/debug/examples/scy_cli: /home/mdbench/Development/GitHub/ScyWeb/sdk/rust/examples/scy_cli.rs /home/mdbench/Development/GitHub/ScyWeb/sdk/rust/src/lib.rs

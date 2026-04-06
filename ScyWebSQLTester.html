@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScyWeb v3.0 | Native Human-Proof SQL</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        :root { --bg: #0b0b0e; --purple: #c084fc; --yellow: #fde047; --green: #10b981; --red: #f87171; --text: #e2e2e9; --border: #2e2e38; }
+        body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; padding: 20px; display: flex; justify-content: center; }
+        .scyweb-container { max-width: 1100px; width: 100%; background: #121217; border: 1px solid var(--border); border-radius: 12px; padding: 25px; box-shadow: 0 10px 40px rgba(0,0,0,0.9); }
+        h1 { color: var(--purple); font-size: 14px; text-transform: uppercase; letter-spacing: 5px; text-align: center; margin-bottom: 25px; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+        .layout { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 20px; }
+        
+        #terminal { background: #050507; height: 400px; border: 1px solid var(--purple); border-radius: 8px; padding: 15px; font-family: 'Fira Code', monospace; font-size: 12px; overflow-y: auto; border-left: 4px solid var(--purple); }
+        .line { margin-bottom: 8px; line-height: 1.4; border-bottom: 1px solid #1a1a24; padding-bottom: 4px; }
+        .user { color: var(--yellow); font-weight: bold; }
+        .system { color: var(--purple); }
+        .success { color: var(--green); }
+        .error { color: var(--red); }
+
+        .viz { background: #000; border: 1px solid var(--border); border-radius: 8px; text-align: center; padding: 15px; }
+        canvas { border: 2px solid var(--purple); width: 100%; max-width: 350px; image-rendering: pixelated; box-shadow: 0 0 20px rgba(192, 132, 252, 0.2); }
+        
+        .firewall-panel { margin-top: 20px; background: #08080a; padding: 15px; border-radius: 8px; display: flex; gap: 20px; align-items: center; border: 1px solid var(--border); }
+        .firewall-toggle { display: flex; align-items: center; gap: 8px; font-size: 11px; cursor: pointer; color: #64748b; }
+        .firewall-toggle input:checked + span { color: var(--purple); font-weight: bold; }
+        
+        .input-box { margin-top: 20px; display: flex; gap: 10px; }
+        input[type="text"] { flex-grow: 1; background: #1a1a24; border: 1px solid var(--border); color: white; padding: 12px; border-radius: 4px; outline: none; font-family: monospace; }
+        button { background: var(--purple); color: #000; padding: 12px 25px; border: none; border-radius: 4px; font-weight: 900; cursor: pointer; }
+        
+        .presets { margin-top: 15px; font-size: 11px; color: #64748b; }
+        .cmd-link { color: var(--purple); cursor: pointer; text-decoration: underline; margin-right: 15px; }
+    </style>
+</head>
+<body>
+
+<div class="scyweb-container">
+    <h1>ScyWeb v3.0 // Native Vanilla Kernel</h1>
+    
+    <div class="layout">
+        <div id="terminal"></div>
+        <div class="viz">
+            <canvas id="scyCanvas" width="256" height="256"></canvas>
+            <div style="font-size: 9px; color: var(--purple); margin-top: 12px; letter-spacing: 2px;">3D MANIFOLD PROJECTION [RECURSIVE-SAFE]</div>
+        </div>
+    </div>
+
+    <div class="firewall-panel">
+        <span style="color: var(--yellow); font-weight: bold; font-size: 10px;">FIREWALL DEFAULTS:</span>
+        <label class="firewall-toggle"><input type="checkbox" id="allowUpdate"> <span>ALLOW UPDATE</span></label>
+        <label class="firewall-toggle"><input type="checkbox" id="allowDelete"> <span>ALLOW DELETE</span></label>
+    </div>
+    
+    <div class="input-box">
+        <input type="text" id="queryInput" placeholder="System Command (SQL-Flavor)...">
+        <button onclick="processRequest()">EXECUTE</button>
+    </div>
+
+    <div class="presets">
+        <b>STABLE PRESETS:</b>
+        <span class="cmd-link" onclick="loadCmd(0)">Write Data</span>
+        <span class="cmd-link" onclick="loadCmd(1)">Fetch Data</span>
+        <span class="cmd-link" onclick="loadCmd(2)">Safe Delete Test</span>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('scyCanvas');
+    const ctx = canvas.getContext('2d');
+    const term = document.getElementById('terminal');
+    const SALT = "ScyWeb_2026_Vanilla_Final";
+    let manifold = {};
+
+    const demoCmds = [
+        "INSERT INTO matrix (id, val) VALUES ('Node_7', 'Encrypted_Segment_01')",
+        "SELECT * FROM matrix WHERE id = 'Node_7'",
+        "DELETE FROM matrix WHERE id = 'Node_7'"
+    ];
+
+    function loadCmd(i) { 
+        document.getElementById('queryInput').value = demoCmds[i]; 
+        document.getElementById('queryInput').focus();
+    }
+
+    function log(m, c='system') {
+        const d = document.createElement('div');
+        d.className = `line ${c}`;
+        d.innerHTML = c === 'user' ? `<span style="color:var(--yellow)">AGENT></span> ${m}` : `> ${m}`;
+        term.appendChild(d);
+        term.scrollTop = term.scrollHeight;
+    }
+
+    // --- CUSTOM SCY-SQL VANILLA PARSER (v3.0) ---
+    function scyKernelParse(sql) {
+        const clean = sql.trim().replace(/;/g, '');
+        const cmd = clean.split(' ')[0].toUpperCase();
+
+        try {
+            if (cmd === 'INSERT') {
+                // Regex to find content inside parentheses
+                const matches = clean.match(/\(([^)]+)\)/g);
+                if (matches && matches.length >= 2) {
+                    const values = matches[1].replace(/[()]/g, '').split(',');
+                    return { 
+                        type: 'INSERT', 
+                        id: values[0].trim().replace(/['"]/g, ''), 
+                        val: values[1].trim().replace(/['"]/g, '') 
+                    };
+                }
+            } 
+            if (cmd === 'SELECT' || cmd === 'DELETE') {
+                const idMatch = clean.match(/id\s*=\s*['"]?([^'"]+)['"]?/i);
+                if (idMatch) return { type: cmd, id: idMatch[1] };
+            }
+            if (cmd === 'UPDATE') {
+                const idMatch = clean.match(/id\s*=\s*['"]?([^'"]+)['"]?/i);
+                const newValMatch = clean.match(/SET\s+val\s*=\s*['"]?([^'"]+)['"]?/i);
+                if (idMatch) return { type: 'UPDATE', id: idMatch[1], val: newValMatch ? newValMatch[1] : null };
+            }
+        } catch (e) { return null; }
+        return null;
+    }
+
+    async function getAddress(id) {
+        const enc = new TextEncoder();
+        const hash = await crypto.subtle.digest('SHA-256', enc.encode(id + SALT));
+        const h = new Uint8Array(hash);
+        return { x: h[0], y: h[1], z: h[2] };
+    }
+
+    function project(x, y, z) {
+        const f = 400; const s = f / (f + z);
+        return { px: (x * s) + (128 * (1 - s)), py: (y * s) + (128 * (1 - s)), sz: Math.max(2, 5 * s), a: s };
+    }
+
+    function refreshManifold() {
+        ctx.fillStyle = "#050507"; ctx.fillRect(0,0,256,256);
+        Object.values(manifold).forEach(i => {
+            ctx.fillStyle = `rgba(192, 132, 252, ${i.p.a})`;
+            ctx.fillRect(i.p.px, i.p.py, i.p.sz, i.p.sz);
+        });
+    }
+
+    async function processRequest() {
+        const sql = document.getElementById('queryInput').value.trim();
+        if(!sql) return;
+        log(sql, 'user');
+
+        const request = scyKernelParse(sql);
+        if (!request) {
+            log("PARSER ERROR: String does not comply with Native Scy-SQL logic.", "error");
+            return;
+        }
+
+        // --- FIREWALL INTERCEPT ---
+        if (request.type === 'UPDATE' && !document.getElementById('allowUpdate').checked) {
+            log("FIREWALL: UPDATE attempt intercepted. Permission denied.", "error");
+            return;
+        }
+        if (request.type === 'DELETE' && !document.getElementById('allowDelete').checked) {
+            log("FIREWALL: DELETE attempt intercepted. Permission denied.", "error");
+            return;
+        }
+
+        const addr = await getAddress(request.id);
+        const p = project(addr.x, addr.y, addr.z);
+        const coordKey = `${addr.x},${addr.y},${addr.z}`;
+
+        if (request.type === 'INSERT' || request.type === 'UPDATE') {
+            manifold[coordKey] = { val: request.val, p, id: request.id };
+            refreshManifold();
+            log(`SUCCESS: [${request.id}] mapped to Manifold Coordinate Z:${addr.z}`, "success");
+        } 
+        else if (request.type === 'SELECT') {
+            const entry = manifold[coordKey];
+            if (entry) {
+                refreshManifold();
+                log(`DATA RETRIEVED: "${entry.val}"`, "success");
+                ctx.strokeStyle = '#fde047';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(entry.p.px-4, entry.p.py-4, entry.p.sz+8, entry.p.sz+8);
+            } else {
+                log("EMPTY: No data at specified coordinate.", "error");
+            }
+        }
+        else if (request.type === 'DELETE') {
+            delete manifold[coordKey];
+            refreshManifold();
+            log(`PURGED: [${request.id}] successfully removed from kernel memory.`, "success");
+        }
+
+        document.getElementById('queryInput').value = "";
+    }
+
+    window.onload = () => { 
+        ctx.fillStyle = "#050507"; ctx.fillRect(0,0,256,256); 
+        log("ScyWeb OS v3.0 Native Kernel Online.");
+        log("No external libraries detected. Protocol: Pure JS.");
+    };
+</script>
+</body>
+</html>

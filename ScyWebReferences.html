@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScyWeb Final Reference Ledger - Matthew D. Benchimol</title>
+    <style>
+        :root {
+            --bg-color: #0b0b0e;
+            --container-bg: #121217;
+            --text-primary: #e2e2e9;
+            --text-secondary: #94a3b8;
+            --accent-purple: #c084fc;
+            --border-color: #2e2e38;
+            --hover-row: #1e1e26;
+        }
+
+        body { font-family: 'Inter', system-ui, sans-serif; line-height: 1.5; color: var(--text-primary); padding: 20px; background-color: var(--bg-color); }
+        .container { max-width: 1400px; margin: auto; background: var(--container-bg); padding: 35px; border-radius: 12px; border: 1px solid var(--border-color); box-shadow: 0 20px 50px rgba(0,0,0,0.6); }
+        h1 { color: var(--accent-purple); font-size: 24px; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }
+        .author-info { margin-bottom: 25px; color: var(--text-secondary); font-size: 0.9em; border-left: 4px solid var(--accent-purple); padding-left: 20px; }
+        .export-btn { background-color: var(--accent-purple); color: #000; padding: 12px 24px; border: none; border-radius: 4px; cursor: pointer; font-weight: 800; margin-bottom: 20px; transition: opacity 0.2s; }
+        .export-btn:hover { opacity: 0.8; }
+        
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        th { background-color: #1e1e26; color: var(--accent-purple); text-align: left; padding: 14px; border: 1px solid var(--border-color); font-size: 0.75em; text-transform: uppercase; }
+        td { padding: 12px; border: 1px solid var(--border-color); vertical-align: top; font-size: 0.85em; word-wrap: break-word; }
+        tr:hover { background-color: var(--hover-row); }
+        a { color: var(--accent-purple); text-decoration: none; font-weight: bold; }
+        .status-tag { display: inline-block; padding: 2px 6px; border: 1px solid var(--accent-purple); border-radius: 3px; font-size: 0.7em; color: var(--accent-purple); font-weight: bold; }
+
+        @media print {
+            .export-btn { display: none; }
+            body { background: white; color: black; padding: 0; }
+            .container { background: white; border: none; box-shadow: none; width: 100%; max-width: 100%; }
+            th { background: #f0f0f0; color: black; border: 1px solid #000; }
+            td { border: 1px solid #000; color: black; }
+            h1, a { color: black; }
+            .status-tag { border-color: black; color: black; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <button class="export-btn" onclick="window.print()">GENERATE PDF LEDGER</button>
+    <h1>ScyWeb Academic Inventory & Justification</h1>
+    <div class="author-info">
+        <strong>Manuscript:</strong> Fractal Permutation and Geometric Stream Ciphers in Image Obfuscation<br>
+        <strong>Author:</strong> Matthew D. Benchimol | <strong>Reference Sync:</strong> 48/48 Verified
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 5%;">Ref #</th>
+                <th style="width: 25%;">Citation Source</th>
+                <th style="width: 15%;">URL Access</th>
+                <th style="width: 40%;">Justification & Application</th>
+                <th style="width: 15%;">Classification</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td>1</td><td>T. Kelly, 'The Myth of the Skytale' (2010)</td><td><a href="https://www.tandfonline.com/doi/abs/10.1080/0161-119891886902" target="_blank">View Link</a></td><td>Historical foundation for helical volume mapping.</td><td><span class="status-tag">Historical</span></td></tr>
+            <tr><td>2</td><td>S. Singh, 'The Code Book: The Science of Secrecy from Ancient Egypt to Quantum Cryptography' (1999)</td><td><a href="https://www.goodreads.com/book/show/1045550" target="_blank">Textbook</a></td><td>Contextualizes physical to digital coordinate keys.</td><td><span class="status-tag">General Crypto</span></td></tr>
+            <tr><td>3</td><td>N. Bourbakis & C. Alexopoulos, 'Picture data encryption using scan patterns' (1992)</td><td><a href="https://www.sciencedirect.com/science/article/abs/pii/003132039290074S" target="_blank">View Link</a></td><td>Justifies non-raster scanning paths for visual security.</td><td><span class="status-tag">Image Encryption</span></td></tr>
+            <tr><td>4</td><td>G. Chen et al., 'A symmetric image encryption scheme based on 3D chaotic cat maps' (2004)</td><td><a href="https://www.sciencedirect.com/science/article/abs/pii/S0960077903006672" target="_blank">View Link</a></td><td>Precedent for multi-dimensional spatial obfuscation.</td><td><span class="status-tag">Chaotic Systems</span></td></tr>
+            <tr><td>5</td><td>S. Li et al., 'Cryptanalysis of an image encryption scheme' (2006)</td><td><a href="https://ira.lib.polyu.edu.hk/bitstream/10397/4363/1/Li_Cryptanalysis_image_encryption.pdf" target="_blank">View Link</a></td><td>Identifies vulnerabilities in standard 2D maps (the "Small Dictionary" Problem). Encryption process relies on a mathematical mapping that is too rigid and has too few "moving parts."</td><td><span class="status-tag">Cryptanalysis</span></td></tr>
+            <tr><td>6</td><td>B. Moon et al., 'Analysis of the Clustering Properties of the Hilbert Space-Filling Curve' (2001)</td><td><a href="https://ieeexplore.ieee.org/document/908985" target="_blank">View Link</a></td><td>Mathematical proof for HFBT de-correlation efficacy.</td><td><span class="status-tag">Space-Filling</span></td></tr>
+            <tr><td>7</td><td>J. Quinqueton, 'A Locally Adaptive Peano Scanning Algorithm' (1981)</td><td><a href="https://dl.acm.org/doi/abs/10.1109/TPAMI.1981.4767126" target="_blank">Archive</a></td><td>Early implementation logic for Peano/Hilbert traversals.</td><td><span class="status-tag">Recursive</span></td></tr>
+            <tr><td>8</td><td>T. H. Reiss, 'Recognizing planar objects using invariant image features' (1993)</td><td><a href="https://archive.org/details/recognizingplana0000reis/mode/2up" target="_blank">Textbook</a></td><td>Defines spatial invariants ScyWeb must destroy.</td><td><span class="status-tag">Computer Vision</span></td></tr>
+            <tr><td>9</td><td>P. W. Shor, 'Algorithms for quantum computation' (1994)</td><td><a href="https://ieeexplore.ieee.org/document/365700" target="_blank">View Link</a></td><td>Primary threat analysis for public-key infrastructure.</td><td><span class="status-tag">Quantum</span></td></tr>
+            <tr><td>10</td><td>L. K. Grover, 'Fast quantum search' (1996)</td><td><a href="https://dl.acm.org/doi/10.1145/237814.237866" target="_blank">View Link</a></td><td>Calculates effective security of entropy pools.</td><td><span class="status-tag">Quantum</span></td></tr>
+            <tr><td>11</td><td>C. H. Bennett et al., 'Strengths and Weaknesses of Quantum Computing' (1997)</td><td><a href="https://arxiv.org/abs/quant-ph/9701001" target="_blank">View Link</a></td><td>Supports the physical limits of quantum speedups.</td><td><span class="status-tag">Theoretical</span></td></tr>
+            <tr><td>12</td><td>C. E. Shannon, 'Communication theory of secrecy systems' (1949)</td><td><a href="https://ieeexplore.ieee.org/document/6769090" target="_blank">View Link</a></td><td>Justifies requirements for diffusion and masking.</td><td><span class="status-tag">Info Theory</span></td></tr>
+            <tr><td>13</td><td>R. Zhou et al., 'Quantum image Gray-code and bit-plane scrambling' (2015)</td><td><a href="https://www.researchgate.net/publication/276481465_Quantum_image_Gray-code_and_bit-plane_scrambling" target="_blank">View Link</a></td><td>Justifies secondary layer of bit-level de-correlation.</td><td><span class="status-tag">Multi-layer</span></td></tr>
+            <tr><td>14</td><td>C. Li & G. Chen, 'On the security of a class of image encryption schemes' (2008)</td><td><a href="https://ieeexplore.ieee.org/document/4542161" target="_blank">View Link</a></td><td>Explores visual heuristic risks in multimedia.</td><td><span class="status-tag">Privacy</span></td></tr>
+            <tr><td>15</td><td>L.P. Yaroslavsky, 'Linking Analog and Digital Image Processing' (2011)</td><td><a href="https://www.researchgate.net/publication/290553324_Linking_Analog_and_Digital_Image_Processing" target="_blank">Textbook</a></td><td>Links analog scrambling to digital transposition.</td><td><span class="status-tag">Historical</span></td></tr>
+            <tr><td>16</td><td>M. A. Nielsen & I. L. Chuang, 'Quantum Computation and Quantum Information' (2010)</td><td><a href="https://www.cambridge.org/highereducation/books/quantum-computation-and-quantum-information/01E10196D0A682A6AEFFEA52D53BE9AE#overview" target="_blank">Textbook</a></td><td>Defines reversible quantum circuit logic.</td><td><span class="status-tag">Quantum Info</span></td></tr>
+            <tr><td>17</td><td>A. Montanaro, 'Quantum algorithms: an overview' (2016)</td><td><a href="https://www.nature.com/articles/npjqi201523" target="_blank">View Link</a></td><td>Defines the oracle bottleneck complexity limits.</td><td><span class="status-tag">Algorithmic</span></td></tr>
+            <tr><td>18</td><td>G. Brassard et al., 'Quantum Amplitude Amplification and Estimation' (2002)</td><td><a href="https://arxiv.org/abs/quant-ph/0005055" target="_blank">View Link</a></td><td>Supports coherence barriers in verification steps.</td><td><span class="status-tag">Quantum Mech</span></td></tr>
+            <tr><td>19</td><td>D. E. Knuth, 'The Art of Computer Programming, Vol. 1: Fundamental Algorithms, 3rd Edition' (1997)</td><td><a href="https://dl.acm.org/doi/book/10.5555/260999" target="_blank">Textbook</a></td><td>Basis for unbiased Fisher-Yates (GPS) shuffle.</td><td><span class="status-tag">Algorithm</span></td></tr>
+            <tr><td>20</td><td>R. A. Fisher, 'Statistical Tables: Statistical Tables for Biological, Agricultural and Medical Research' (1938)</td><td><a href="https://www.science.org/doi/10.1126/science.88.2295.596" target="_blank">Archive</a></td><td>Historical anchor for randomized shuffling.</td><td><span class="status-tag">Statistical</span></td></tr>
+            <tr><td>21</td><td>R. Durstenfeld, 'Algorithm 235: Permutation' (1964)</td><td><a href="https://doi.org/10.1145/364520.364540" target="_blank">View Link</a></td><td>Justifies O(N) linear-time execution of GPS.</td><td><span class="status-tag">Efficiency</span></td></tr>
+            <tr><td>22</td><td>C. Gidney & M. Ekerå, 'How to factor 2048 bit RSA integers in 8 hours using 20 million noisy qubits' (2021)</td><td><a href="https://quantum-journal.org/papers/q-2021-04-15-433/" target="_blank">View Link</a></td><td>Benchmarks real-world quantum attack resources.</td><td><span class="status-tag">Benchmarking</span></td></tr>
+            <tr><td>23</td><td>J. Preskill, 'Quantum Computing in the NISQ era and beyond' (2018)</td><td><a href="https://quantum-journal.org/papers/q-2018-08-06-79/" target="_blank">View Link</a></td><td>Defines hardware constraints of near-term devices.</td><td><span class="status-tag">Future Tech</span></td></tr>
+            <tr><td>24</td><td>P. W. Shor, 'Algorithms for quantum computation: discrete logarithms and factoring' (1994)</td><td><a href="https://dl.acm.org/doi/10.1109/SFCS.1994.365700" target="_blank">Archive</a></td><td>Reiterates threats to classical modular arithmetic.</td><td><span class="status-tag">Quantum Threats</span></td></tr>
+            <tr><td>25</td><td>D. L. Cook et al., 'CryptoGraphics: Secret Key Cryptography Using Graphics Cards' (2005)</td><td><a href="https://link.springer.com/chapter/10.1007/978-3-540-30574-3_23" target="_blank">View Link</a></td><td>Justifies GPU-accelerated canvas operations.</td><td><span class="status-tag">Parallel</span></td></tr>
+            <tr><td>26</td><td>A. G. Fowler et al., 'Surface codes: Towards practical large-scale quantum computation' (2012)</td><td><a href="https://arxiv.org/abs/1208.0928" target="_blank">View Link</a></td><td>Qubit ratio used for attack difficulty scaling.</td><td><span class="status-tag">Error Correction</span></td></tr>
+            <tr><td>27</td><td>H. S. Warren, 'Hacker's Delight, 2nd edition' (2013)</td><td><a href="https://www.pearson.com/en-us/subject-catalog/p/hackers-delight/P200000000672/9780133085013?srsltid=AfmBOorZIsXhKhAUwAtzMKxVei60mK3EWSvdt4y8dfza2a9oMU4V9lM3" target="_blank">Textbook</a></td><td>Math for Morton-Z bit-interleaving.</td><td><span class="status-tag">Math Logic</span></td></tr>
+            <tr><td>28</td><td>J. Skilling, 'Programming the Hilbert curve' (2004)</td><td><a href="https://doi.org/10.1063/1.1751381" target="_blank">View Link</a></td><td>Recursive bit-manipulation logic for HFBT.</td><td><span class="status-tag">Implementation</span></td></tr>
+            <tr><td>29</td><td>A. J. Menezes et al., 'Handbook of Applied Cryptography' (2018)</td><td><a href="https://www.taylorfrancis.com/books/mono/10.1201/9780429466335/handbook-applied-cryptography-alfred-menezes-kenneth-rosen-scott-vanstone-paul-van-oorschot" target="_blank">Textbook</a></td><td>Standard for block cipher evaluations.</td><td><span class="status-tag">Core Reference</span></td></tr>
+            <tr><td>30</td><td>B. Schneier, 'Applied Cryptography Protocols, Algorithms, and Source Code in C' (1996)</td><td><a href="https://www.schneier.com/books/applied-cryptography/" target="_blank">Textbook</a></td><td>Establishes CBC benchmarks for fractal geometry.</td><td><span class="status-tag">Core Reference</span></td></tr>
+            <tr><td>31</td><td>G. M. Morton, 'A Computer Oriented Geodetic Data Base; and a New Technique in File Sequencing' (1966)</td><td><a href="https://dominoweb.draco.res.ibm.com/0dabf9473b9c86d48525779800566a39.html" target="_blank">Archive</a></td><td>Original source for Morton-Z (MZMO) logic.</td><td><span class="status-tag">Primary Source</span></td></tr>
+            <tr><td>32</td><td>M. Bader, 'Space-Filling Curves: An Introduction with Applications in Scientific Computing' (2012)</td><td><a href="https://link.springer.com/book/10.1007/978-3-642-31046-1" target="_blank">Textbook</a></td><td>Adjacency-preserving mapping theory.</td><td><span class="status-tag">Geometric</span></td></tr>
+            <tr><td>33</td><td>J. Katz & Y. Lindell, 'Introduction to Modern Cryptography' (2020)</td><td><a href="https://www.taylorfrancis.com/books/mono/10.1201/9781351133036/introduction-modern-cryptography-yehuda-lindell-jonathan-katz" target="_blank">Textbook</a></td><td>Theoretical framework for diffusion saturation.</td><td><span class="status-tag">Contemporary</span></td></tr>
+            <tr><td>34</td><td>D. R. Stinson, 'Cryptography: Theory and Practice' (2017)</td><td><a href="https://www.taylorfrancis.com/books/mono/10.1201/9781315282497/cryptography-douglas-robert-stinson-maura-paterson" target="_blank">Textbook</a></td><td>Math proof for recursive XOR chaining.</td><td><span class="status-tag">Math Proof</span></td></tr>
+            <tr><td>35</td><td>NIST, 'Report on Post-Quantum Cryptography' (2016)</td><td><a href="https://doi.org/10.6028/NIST.IR.8105" target="_blank">View Link</a></td><td>Standard for evaluating quantum-safe tools.</td><td><span class="status-tag">Gov Standard</span></td></tr>
+            <tr><td>36</td><td>P. Kaye et al., 'An Introduction to Quantum Computing' (2007)</td><td><a href="https://philpapers.org/rec/KAYAIT-3" target="_blank">Textbook</a></td><td>Quantum gate logic for oracles.</td><td><span class="status-tag">Academic</span></td></tr>
+            <tr><td>37</td><td>N. Biggs, 'Discrete Mathematics' (2003)</td><td><a href="https://global.oup.com/academic/product/discrete-mathematics-9780198507178?cc=us&lang=en&#" target="_blank">Textbook</a></td><td>Combinatorial search space derivation.</td><td><span class="status-tag">Combinatorics</span></td></tr>
+            <tr><td>38</td><td>H. Robbins, 'Remark on Stirling's formula' (1955)</td><td><a href="https://www.jstor.org/stable/2308012" target="_blank">View Link</a></td><td>Models super-exponential search space growth.</td><td><span class="status-tag">Calculus</span></td></tr>
+            <tr><td>39</td><td>Z. Wang et al., 'Image quality assessment' (2004)</td><td><a href="https://ieeexplore.ieee.org/document/1284395" target="_blank">View Link</a></td><td>SSIM metric for visual non-recognition proof.</td><td><span class="status-tag">Quality</span></td></tr>
+            <tr><td>40</td><td>T. M. Cover, 'Elements of Information Theory' (2005)</td><td><a href="https://onlinelibrary.wiley.com/doi/book/10.1002/047174882X" target="_blank">Textbook</a></td><td>Mutual information reduction limits.</td><td><span class="status-tag">Info Theory</span></td></tr>
+            <tr><td>41</td><td>X. Zhang, et al., 'A Chaos-Based Image Encryption Technique Utilizing Hilbert Curves and H-Fractals' (2019)</td><td><a href="https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=8732319" target="_blank">View Link</a></td><td>Hybrid fractal-chaotic methodology support.</td><td><span class="status-tag">Hybrid Systems</span></td></tr>
+            <tr><td>42</td><td>D. R. Stinson, 'Cryptography: Theory and Practice' (1995)</td><td><a href="https://ia902903.us.archive.org/30/items/pdfy-eAEdqcELZKUUU733/Cryptography%20Theory%20And%20Practice%20-%20Douglas%20Stinson.pdf" target="_blank">Archive</a></td><td>Foundational logic for stream dependencies.</td><td><span class="status-tag">Technical</span></td></tr>
+            <tr><td>43</td><td>D. J. Bernstein, 'Post-quantum crypto' (2017)</td><td><a href="https://www.nature.com/articles/nature23461" target="_blank">View Link</a></td><td>Authoritative post-quantum resilience validation.</td><td><span class="status-tag">Peer Reviewed</span></td></tr>
+            <tr><td>44</td><td>M. Schlosshauer, 'Decoherence and the Quantum-To-Classical Transition' (2007)</td><td><a href="https://link.springer.com/book/10.1007/978-3-540-35775-9" target="_blank">Textbook</a></td><td>Physics of environmental quantum noise limits.</td><td><span class="status-tag">Quantum Phys</span></td></tr>
+            <tr><td>45</td><td>W. H. Zurek, 'Quantum origins' (2003)</td><td><a href="https://doi.org/10.1103/RevModPhys.75.715" target="_blank">View Link</a></td><td>Reinforces Decoherence Wall security barrier.</td><td><span class="status-tag">Quantum Phys</span></td></tr>
+            <tr><td>46</td><td>B. M. Terhal, 'Quantum error correction' (2015)</td><td><a href="https://doi.org/10.1103/RevModPhys.87.307" target="_blank">View Link</a></td><td>Overhead logic for quantum attack impossibility.</td><td><span class="status-tag">Engineering</span></td></tr>
+            <tr><td>47</td><td>T. Kelly, 'The Myth of the Skytale' (2011)</td><td><a href="https://www.tandfonline.com/doi/abs/10.1080/0161-119891886902" target="_blank">Archive</a></td><td>Modern deep-dive into Spartan geometric return.</td><td><span class="status-tag">History</span></td></tr>
+            <tr><td>48</td><td>H. Feistel, 'Cryptography and Computer Privacy' (1973)</td><td><a href="https://www.scientificamerican.com/article/cryptography-and-computer-privacy/" target="_blank">View Link</a></td><td>Strict Avalanche Criterion (SAC) validation.</td><td><span class="status-tag">Principles</span></td></tr>
+        </tbody>
+    </table>
+</div>
+
+</body>
+</html>

@@ -1,1 +1,6 @@
-ScyWebReferences.html
+# References removed for potential copyright reasons
+Morton_A Computer Oriented Geodetic Data Base and a New Technique in File Sequencing.pdf
+# ScyWeb SDK Local Persistence
+sdk/**/*.scy
+sdk/**/*.log
+data/
