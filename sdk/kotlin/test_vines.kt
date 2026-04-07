@@ -1,47 +1,55 @@
-package sdk.kotlin
-
 import java.io.File
-import java.io.FileOutputStream
+import java.io.RandomAccessFile
+import java.nio.file.Files
+import java.nio.file.Paths
 import kotlin.system.exitProcess
 
 fun main() {
-    val password = "ScyWeb_Global_Secret_2026"
-    val imagePath = "../../vines_images/parity_test.ppm"
-    
-    val testKey = "user"
+    val testKey = "User"
     val testValue = "Amanda"
+    val password = "ScyWeb_Global_Secret_2026"
+    val dbDir = "vines_images"
+    val dbPath = "$dbDir/kotlin_vine.ppm"
 
     try {
-        val file = File(imagePath)
-        if (!file.exists()) {
-            file.parentFile.mkdirs()
-            FileOutputStream(file).use { fos ->
-                fos.write("P6\n4000 4000\n255\n".toByteArray())
-                val empty = ByteArray(1024 * 1024)
-                repeat((4000 * 4000 * 3) / empty.size) {
-                    fos.write(empty)
-                }
-            }
+        // PHYSICAL FILE SETUP
+        Files.createDirectories(Paths.get(dbDir))
+        val file = File(dbPath)
+        
+        RandomAccessFile(file, "rw").use { raf ->
+            // Exact 15-byte header parity
+            val header = "P6 4000 4000 255\n".toByteArray()
+            raf.write(header, 0, 15)
+            
+            // Allocate 48MB (4000 * 4000 * 3 + 15)
+            raf.setLength(48000015L)
         }
 
-        val kernel = ScyKernel(password, imagePath)
+        // INITIALIZE KERNEL
+        val scy = ScyKernel(password, dbPath)
 
-        println("Kotlin: Putting key '$testKey'...")
-        kernel.put(testKey, testValue)
+        // SOW: Put operation (Must use 1600 offset internally)
+        scy.put(testKey, testValue)
 
-        println("Kotlin: Getting key '$testKey'...")
-        val result = kernel.get(testKey)
+        // HARVEST: Get operation
+        val result = scy.get(testKey)
+
+        // CLEANUP & VALIDATION
+        if (file.exists()) {
+            file.delete()
+        }
 
         if (testValue == result) {
             println("✅ Kotlin KV Parity: SUCCESS (Recovered: $result)")
             exitProcess(0)
         } else {
             println("❌ Kotlin KV Parity: FAIL")
-            println("Expected: $testValue, Got: $result")
+            println("Expected: $testValue, Got: [$result]")
             exitProcess(1)
         }
+
     } catch (e: Exception) {
-        System.err.println("❌ Kotlin Error: ${e.message}")
+        println("❌ Kotlin SDK Error: ${e.message}")
         e.printStackTrace()
         exitProcess(1)
     }

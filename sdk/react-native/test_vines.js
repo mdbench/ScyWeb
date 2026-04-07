@@ -1,61 +1,62 @@
-import fs from 'fs/promises';
+import React, { useEffect, useState } from 'react';
+import { Text, View, ScrollView } from 'react-native';
+import ScyKernel from './ScyKernel'; 
+import RNFS from 'react-native-fs'; // Common RN Filesystem lib
 
-// Mock RNFS to use Node's filesystem for CI parity
-const RNFS = {
-    read: async (path, length, position, encoding) => {
-        const buffer = Buffer.alloc(length);
-        const fileHandle = await fs.open(path, 'r');
-        await fileHandle.read(buffer, 0, length, position);
-        await fileHandle.close();
-        return buffer.toString(encoding);
-    },
-    write: async (path, content, position, encoding) => {
-        const buffer = Buffer.from(content, encoding);
-        const fileHandle = await fs.open(path, 'r+');
-        await fileHandle.write(buffer, 0, buffer.length, position);
-        await fileHandle.close();
-    }
-};
+const TestVines = () => {
+  const [log, setLog] = useState("⏳ Initializing React-Native Parity Test...");
 
-import ScyKernel from './ScyKernel.js';
-import RNFS from 'react-native-fs';
+  const runTest = async () => {
+    const testKey = "User";
+    const testValue = "Amanda";
+    const password = "ScyWeb_Global_Secret_2026";
+    const dbPath = `${RNFS.DocumentDirectoryPath}/rn_vine.ppm`;
 
-const password = "ScyWeb_Global_Secret_2026";
-const imagePath = `${RNFS.DocumentDirectoryPath}/parity_test.ppm`;
-
-const testKey = "user";
-const testValue = "Amanda";
-
-const runTest = async () => {
     try {
-        // Ensure PPM exists
-        const exists = await RNFS.exists(imagePath);
-        if (!exists) {
-            const header = "P6\n4000 4000\n255\n";
-            await RNFS.writeFile(imagePath, header, 'utf8');
-            // Note: In a real app, pre-allocating 48MB on main thread is slow.
-            // For testing, we ensure the file is at least large enough.
-        }
+      // RNFS.writeFile handles the 15-byte header parity
+      const header = "P6 4000 4000 255\n".substring(0, 15);
+      await RNFS.writeFile(dbPath, header, 'ascii');
 
-        const kernel = new ScyKernel(password, imagePath);
+      // Note: Most RN file libs don't have ftruncate. 
+      // We fill the "soil" with null bytes to reach 48,000,015.
+      // In a real app, you'd ship a pre-allocated asset.
+      const dummyData = "\0".repeat(1024 * 1024); // 1MB chunk
+      for(let i = 0; i < 47; i++) {
+          await RNFS.appendFile(dbPath, dummyData, 'ascii');
+      }
 
-        console.log(`React Native: Putting key '${testKey}'...`);
-        await kernel.put(testKey, testValue);
+      // INITIALIZE KERNEL
+      const scy = new ScyKernel(password, dbPath);
 
-        console.log(`React Native: Getting key '${testKey}'...`);
-        const result = await kernel.get(testKey);
+      // SOW: Put operation (Must use 1600 offset internally)
+      await scy.put(testKey, testValue);
 
-        if (result === testValue) {
-            console.log(`✅ RN KV Parity: SUCCESS (Recovered: ${result})`);
-            return true;
-        } else {
-            console.log(`❌ RN KV Parity: FAIL. Got: ${result}`);
-            return false;
-        }
+      // HARVEST: Get operation
+      const result = await scy.get(testKey);
+
+      // CLEANUP & VALIDATION
+      if (await RNFS.exists(dbPath)) {
+        await RNFS.unlink(dbPath);
+      }
+
+      if (result === testValue) {
+        setLog(prev => prev + `\n✅ RN KV Parity: SUCCESS\n(Recovered: ${result})`);
+      } else {
+        setLog(prev => prev + `\n❌ RN KV Parity: FAIL\nExpected: ${testValue}, Got: [${result}]`);
+      }
+
     } catch (err) {
-        console.error(`❌ RN Error: ${err.message}`);
-        return false;
+      setLog(prev => prev + `\n❌ RN SDK Error: ${err.message}`);
     }
+  };
+
+  useEffect(() => { runTest(); }, []);
+
+  return (
+    <ScrollView style={{ padding: 20, backgroundColor: '#1a1a1a' }}>
+      <Text style={{ color: '#00ff00', fontFamily: 'monospace' }}>{log}</Text>
+    </ScrollView>
+  );
 };
 
-export default runTest;
+export default TestVines;

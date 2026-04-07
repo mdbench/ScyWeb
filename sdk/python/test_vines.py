@@ -1,42 +1,60 @@
 import os
 import sys
-from scy_kernel import ScyKernel
+from ScyKernel import ScyKernel
 
-def main():
-    password = "ScyWeb_Global_Secret_2026"
-    image_path = "../../vines_images/parity_test.ppm"
-    
-    test_key = "user"
+def run_test():
+    test_key = "User"
     test_value = "Amanda"
+    password = "ScyWeb_Global_Secret_2026"
+    db_dir = "vines_images"
+    db_path = os.path.join(db_dir, "py_vine.ppm")
+
+    # PHYSICAL FILE SETUP
+    if not os.path.exists(db_dir):
+        os.makedirs(db_dir)
 
     try:
-        # Ensure PPM exists for testing
-        if not os.path.exists(image_path):
-            os.makedirs(os.path.dirname(image_path), exist_ok=True)
-            with open(image_path, "wb") as f:
-                f.write(b"P6\n4000 4000\n255\n")
-                # Pre-allocate 48MB of null bytes
-                f.write(b"\x00" * (4000 * 4000 * 3))
+        with open(db_path, "wb") as f:
+            # Exact 15-byte header parity: "P6 4000 4000 25"
+            header = b"P6 4000 4000 255\n"
+            f.write(header[:15])
+            
+            # Allocate 48MB (4000 * 4000 * 3 + 15)
+            f.truncate(48000015)
+    except Exception as e:
+        print(f"❌ Failed to create database file: {e}")
+        sys.exit(1)
 
-        kernel = ScyKernel(password, image_path)
+    # INITIALIZE KERNEL
+    scy = ScyKernel(password, db_path)
 
-        print(f"Python: Putting key '{test_key}'...")
-        kernel.put(test_key, test_value)
+    # SOW: Put operation (Must use 1600 offset internally)
+    try:
+        scy.put(test_key, test_value)
+    except Exception as e:
+        print(f"❌ Python SDK Put Error: {e}")
+        if os.path.exists(db_path):
+            os.remove(db_path)
+        sys.exit(1)
 
-        print(f"Python: Getting key '{test_key}'...")
-        result = kernel.get(test_key)
+    # HARVEST: Get operation
+    try:
+        result = scy.get(test_key)
+
+        # CLEANUP & VALIDATION
+        if os.path.exists(db_path):
+            os.remove(db_path)
 
         if result == test_value:
             print(f"✅ Python KV Parity: SUCCESS (Recovered: {result})")
             sys.exit(0)
         else:
-            print(f"❌ Python KV Parity: FAIL")
-            print(f"Expected: {test_value}, Got: {result}")
+            print("❌ Python KV Parity: FAIL")
+            print(f"Expected: {test_value}, Got: [{result}]")
             sys.exit(1)
-            
     except Exception as e:
-        print(f"❌ Python Error: {str(e)}")
+        print(f"❌ Python SDK Get Error: {e}")
         sys.exit(1)
 
 if __name__ == "__main__":
-    main()
+    run_test()

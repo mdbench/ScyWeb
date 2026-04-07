@@ -1,46 +1,52 @@
-#include "ScyKernel.hpp"
 #include <iostream>
+#include <fstream>
 #include <string>
-#include <vector>
+#include <filesystem>
+#include "ScyKernel.hpp" 
+
+namespace fs = std::filesystem;
 
 int main() {
-    std::string password = "ScyWeb_Global_Secret_2026";
-    std::string imagePath = "../../vines_images/parity_test.ppm";
+    const std::string dir = "vines_images";
+    const std::string path = dir + "/cpp_vine.ppm";
+    const std::string testKey = "User";
+    const std::string testValue = "Amanda";
+    const std::string password = "ScyWeb_Global_Secret_2026";
+
+    // Ensure the local folder exists
+    if (!fs::exists(dir)) {
+        fs::create_directory(dir);
+    }
+
+    // Creating the bit-perfect 15-byte header + 48MB body
+    std::ofstream out(path, std::ios::binary);
+    if (!out) {
+        std::cerr << "❌ IO Error: Could not create " << path << std::endl;
+        return 1;
+    }
     
-    // The "Amanda" Integration Strategy
-    std::string testKey = "user";
-    std::string testValue = "Amanda";
+    // Header Parity: printf "P6 4000 4000 255\n" | head -c 15
+    out << "P6 4000 4000 25"; 
+    out.seekp(15 + 48000000 - 1);
+    out.put(0);
+    out.close();
 
-    try {
-        // Initialize a dummy PPM if it doesn't exist (for CI)
-        std::ifstream f(imagePath);
-        if(!f.good()) {
-            std::ofstream out(imagePath, std::ios::binary);
-            out << "P6\n4000 4000\n255\n";
-            std::vector<char> empty(4000 * 4000 * 3, 0);
-            out.write(empty.data(), empty.size());
-            out.close();
-        }
-        f.close();
+    // Instantiating 'scy' with the password and the local path
+    ScyKernel scy(password, path);
 
-        ScyKernel kernel(password, imagePath);
+    // Internal logic handles the +1600 offset and Hilbert mapping
+    scy.put(testKey, testValue);
 
-        std::cout << "C++: Putting key '" << testKey << "'..." << std::endl;
-        kernel.put(testKey, testValue);
+    // Retrieve the result
+    std::string result = scy.get(testKey);
 
-        std::cout << "C++: Getting key '" << testKey << "'..." << std::endl;
-        std::string result = kernel.get(testKey);
-
-        if (result == testValue) {
-            std::cout << "✅ C++ KV Parity: SUCCESS (Recovered: " << result << ")" << std::endl;
-            return 0;
-        } else {
-            std::cout << "❌ C++ KV Parity: FAIL" << std::endl;
-            std::cout << "Expected: " << testValue << ", Got: " << result << std::endl;
-            return 1;
-        }
-    } catch (const std::exception& e) {
-        std::cerr << "❌ C++ Exception: " << e.what() << std::endl;
+    // Output Comparison
+    if (result == testValue) {
+        std::cout << "✅ C++ KV Parity: SUCCESS (Recovered: " << result << ")" << std::endl;
+        return 0;
+    } else {
+        std::cout << "❌ C++ KV Parity: FAIL" << std::endl;
+        std::cout << "Expected: " << testValue << ", Got: [" << result << "]" << std::endl;
         return 1;
     }
 }

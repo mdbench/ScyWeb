@@ -1,10 +1,7 @@
 package main
 
 import (
-	"encoding/binary"
-	"fmt"
 	"io"
-	"math"
 	"os"
 	"strings"
 	"unicode"
@@ -119,7 +116,7 @@ func (k *ScyKernel) Put(key, value string) error {
 
 func (k *ScyKernel) Get(key string) (string, error) {
 	index := k.deriveIndex(key)
-	curD := k.hVal + (index * 1000)
+	curD := k.hVal + (index * 1600)
 	x, y := k.d2xy(k.canvasSize, curD)
 
 	file, err := os.Open(k.filePath)

@@ -1,48 +1,48 @@
-use scy_rust::ScyKernel;
-use std::fs;
-use std::process;
+use scy_rust::ScyKernel; 
+use std::fs::{self, File, OpenOptions};
+use std::io::Write;
+use std::path::Path;
 
 fn main() {
-    let password = "ScyWeb_Global_Secret_2026";
-    let image_path = "../../vines_images/parity_test.ppm";
-    
-    let test_key = "user";
+    let test_key = "User";
     let test_value = "Amanda";
+    let password = "ScyWeb_Global_Secret_2026";
+    let db_dir = "vines_images";
+    let db_path = format!("{}/rust_vine.ppm", db_dir);
 
-    // Ensure directory and dummy PPM exist for CI
-    if !fs::metadata("../../vines_images").is_ok() {
-        fs::create_dir_all("../../vines_images").unwrap();
+    // 1. PHYSICAL FILE SETUP
+    if !Path::new(db_dir).exists() {
+        fs::create_dir_all(db_dir).expect("❌ Failed to create directory");
     }
 
-    if !fs::metadata(image_path).is_ok() {
-        let mut header = Vec::from("P6\n4000 4000\n255\n");
-        let empty_payload = vec![0u8; 4000 * 4000 * 3];
-        header.extend(empty_payload);
-        fs::write(image_path, header).expect("Unable to create test image");
+    let file = File::create(&db_path).expect("❌ Failed to create database file");
+    
+    // Exact 15-byte header parity: "P6 4000 4000 255\n"
+    let header = b"P6 4000 4000 255\n";
+    file.set_len(48_000_015).expect("❌ Failed to allocate 48MB");
+    
+    let mut file_handle = OpenOptions::new().write(true).open(&db_path).unwrap();
+    file_handle.write_all(&header[..15]).expect("❌ Failed to write header");
+
+    // 2. INITIALIZE KERNEL
+    let scy = ScyKernel::new(password, &db_path);
+
+    // 3. SOW: Put operation
+    scy.put(test_key, test_value).expect("❌ Rust SDK Put Error");
+
+    // 4. HARVEST: Get operation
+    let result = scy.get(test_key).expect("❌ Rust SDK Get Error");
+
+    // 5. CLEANUP & VALIDATION
+    if Path::new(&db_path).exists() {
+        fs::remove_file(&db_path).expect("❌ Cleanup failed");
     }
 
-    let kernel = ScyKernel::new(password, image_path);
-
-    println!("Rust: Putting key '{}'...", test_key);
-    if let Err(e) = kernel.put(test_key, test_value) {
-        eprintln!("❌ Rust Error during Put: {}", e);
-        process::exit(1);
-    }
-
-    println!("Rust: Getting key '{}'...", test_key);
-    match kernel.get(test_key) {
-        Ok(result) => {
-            if result == test_value {
-                println!("✅ Rust KV Parity: SUCCESS (Recovered: {})", result);
-                process::exit(0);
-            } else {
-                println!("❌ Rust KV Parity: FAIL. Expected: {}, Got: {}", test_value, result);
-                process::exit(1);
-            }
-        }
-        Err(e) => {
-            eprintln!("❌ Rust Error during Get: {}", e);
-            process::exit(1);
-        }
+    if result == test_value {
+        println!("✅ Rust KV Parity: SUCCESS (Recovered: {})", result);
+        std::process::exit(0);
+    } else {
+        println!("❌ Rust KV Parity: FAIL. Expected {}, Got [{}]", test_value, result);
+        std::process::exit(1);
     }
 }

@@ -1,45 +1,64 @@
 <?php
 require_once 'ScyKernel.php';
 
-$password = "ScyWeb_Global_Secret_2026";
-$imagePath = "../../vines_images/parity_test.ppm";
+function runTest() {
+    $testKey = "User";
+    $testValue = "Amanda";
+    $password = "ScyWeb_Global_Secret_2026";
+    $dbDir = "vines_images";
+    $dbPath = $dbDir . "/php_vine.ppm";
 
-$testKey = "user";
-$testValue = "Amanda";
-
-try {
-    // Ensure PPM exists for testing
-    if (!file_exists($imagePath)) {
-        $dir = dirname($imagePath);
-        if (!is_dir($dir)) mkdir($dir, 0777, true);
-        
-        $fp = fopen($imagePath, 'wb');
-        fwrite($fp, "P6\n4000 4000\n255\n");
-        // Pre-allocate 48MB file
-        $chunk = str_repeat("\0", 1024 * 1024);
-        for ($i = 0; $i < (4000 * 4000 * 3) / (1024 * 1024); $i++) {
-            fwrite($fp, $chunk);
-        }
-        fclose($fp);
+    // PHYSICAL FILE SETUP
+    if (!is_dir($dbDir)) {
+        mkdir($dbDir, 0755, true);
     }
 
-    $kernel = new ScyKernel($password, $imagePath);
-
-    echo "PHP: Putting key '$testKey'...\n";
-    $kernel->put($testKey, $testValue);
-
-    echo "PHP: Getting key '$testKey'...\n";
-    $result = $kernel->get($testKey);
-
-    if ($result === $testValue) {
-        echo "✅ PHP KV Parity: SUCCESS (Recovered: $result)\n";
-        exit(0);
-    } else {
-        echo "❌ PHP KV Parity: FAIL\n";
-        echo "Expected: $testValue, Got: $result\n";
+    $f = fopen($dbPath, "wb+");
+    if (!$f) {
+        echo "❌ Failed to create database file.\n";
         exit(1);
     }
-} catch (Exception $e) {
-    echo "❌ PHP Error: " . $e->getMessage() . "\n";
-    exit(1);
+
+    // Write exact 15-byte header parity: "P6 4000 4000 25"
+    $header = "P6 4000 4000 255\n";
+    fwrite($f, substr($header, 0, 15));
+
+    // Allocate 48MB (4000 * 4000 * 3) using ftruncate
+    ftruncate($f, 48000015);
+    fclose($f);
+
+    // INITIALIZE KERNEL
+    $scy = new ScyKernel($password, $dbPath);
+
+    // SOW: Put operation (Must use 1600 offset internally)
+    try {
+        $scy->put($testKey, $testValue);
+    } catch (Exception $e) {
+        echo "❌ PHP SDK Put Error: " . $e->getMessage() . "\n";
+        exit(1);
+    }
+
+    // HARVEST: Get operation
+    try {
+        $result = $scy->get($testKey);
+
+        // CLEANUP & VALIDATION
+        if (file_exists($dbPath)) {
+            unlink($dbPath);
+        }
+
+        if ($result === $testValue) {
+            echo "✅ PHP KV Parity: SUCCESS (Recovered: $result)\n";
+            exit(0);
+        } else {
+            echo "❌ PHP KV Parity: FAIL\n";
+            echo "Expected: $testValue, Got: [$result]\n";
+            exit(1);
+        }
+    } catch (Exception $e) {
+        echo "❌ PHP SDK Get Error: " . $e->getMessage() . "\n";
+        exit(1);
+    }
 }
+
+runTest();

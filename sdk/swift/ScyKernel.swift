@@ -1,143 +1,100 @@
 import Foundation
 
-class ScyKernel {
+public class ScyKernel {
     private let password: String
     private let filePath: String
     private let canvasSize: Int = 4000
-    private var hVal: Int = 0
+    private var hVal: Int64 = 0
 
-    init(password: String, filePath: String) {
+    public init(password: String, filePath: String) {
         self.password = password
         self.filePath = filePath
-        self.hVal = getHVal(pwd: password)
+        self.hVal = Int64(getHVal(pwd: password))
     }
 
     private func getHVal(pwd: String) -> Int {
         var hash: UInt32 = 7
         for char in pwd.unicodeScalars {
-            // Use &* and &+ for clean 32-bit wrapping parity
             hash = (hash &* 31) &+ UInt32(char.value)
         }
-        // Vectorial Normalization: (Hash / 2^32) * 16M
-        let normalized = (Double(hash) / 4294967296.0) * 16000000.0
-        return Int(normalized)
+        return Int((Double(hash) / 4294967296.0) * 16000000.0)
     }
 
-    // Deterministic FNV-1a + Alphabet Salt for Cross-Language Parity
-    private func deriveIndex(key: String) -> Int {
+    private func deriveIndex(key: String) -> Int64 {
         var hash: UInt32 = 0x811c9dc5
         let prime: UInt32 = 0x01000193
         var alphaSalt: Int64 = 0
+        let aValue = Int64(Unicode.Scalar("a").value)
 
-        let lowerKey = key.lowercased()
-        let keyScalars = Array(key.unicodeScalars)
-        let lowerScalars = Array(lowerKey.unicodeScalars)
-
-        for i in 0..<keyScalars.count {
-            let scalar = keyScalars[i]
-            let lowerScalar = lowerScalars[i]
-            
-            // FNV-1a Math (32-bit unsigned wrapping)
+        for scalar in key.lowercased().unicodeScalars {
             hash ^= UInt32(scalar.value)
             hash = hash &* prime
-
-            // Alphabet Salt (a=1, b=2...)
-            if CharacterSet.letters.contains(lowerScalar) {
-                // Fix: Added ! to force unwrap and fixed variable naming
-                let saltVal = Int64(lowerScalar.value) - Int64(Unicode.Scalar("a")!.value) + 1
-                alphaSalt += saltVal
+            if CharacterSet.letters.contains(scalar) {
+                alphaSalt += Int64(scalar.value) - aValue + 1
             }
         }
-        
-        // Combine hash and salt, force into a UInt32 container, then project
         let finalVal = UInt32(truncatingIfNeeded: Int64(hash) + alphaSalt)
-        let normalized = (Double(finalVal) / 4294967296.0) * 16000000.0
-        return Int(normalized)
+        return Int64((Double(finalVal) / 4294967296.0) * 16000000.0)
     }
 
     private func rot(n: Int, x: Int, y: Int, rx: Int, ry: Int) -> (Int, Int) {
-        var tx = x
-        var ty = y
         if ry == 0 {
-            if rx == 1 {
-                tx = n - 1 - x
-                ty = n - 1 - y
-            }
-            return (ty, tx)
-        }
-        return (tx, ty)
-    }
-
-    private func d2xy(n: Int, d: Int) -> (Int, Int) {
-        var x = 0, y = 0
-        var t = d
-        var s = 1
-        while s < n {
-            let rx = 1 & (t / 2)
-            let ry = 1 & (t ^ rx)
-            let (nx, ny) = rot(n: s, x: x, y: y, rx: rx, ry: ry)
-            x = nx + s * rx
-            y = ny + s * ry
-            t /= 4
-            s *= 2
+            if rx == 1 { return (n - 1 - y, n - 1 - x) }
+            return (y, x)
         }
         return (x, y)
     }
 
-    func put(key: String, value: String) throws {
-        let index = deriveIndex(key: key)
-        let curD = hVal + (index * 1600)
-        let (x, y) = d2xy(n: canvasSize, d: curD)
-
-        let fileURL = URL(fileURLWithPath: filePath)
-        let fileHandle = try FileHandle(forUpdating: fileURL)
-        defer { fileHandle.closeFile() }
-
-        let offset = UInt64(15 + (y * canvasSize + x) * 3)
-        let data = Data(value.utf8)
-
-        for (i, byte) in data.enumerated() {
-            let pos = offset + UInt64(i * 3)
-            fileHandle.seek(toFileOffset: pos)
-            var pixel = fileHandle.readData(ofLength: 3)
-            if pixel.isEmpty { pixel = Data([0, 0, 0]) }
-            
-            // XOR Obfuscation
-            var pArray = [UInt8](pixel)
-            pArray[0] ^= byte
-            
-            fileHandle.seek(toFileOffset: pos)
-            fileHandle.write(Data(pArray))
+    private func d2xy(n: Int, d: Int64) -> (Int, Int) {
+        var x = 0, y = 0, t = d, s = 1
+        while s < n {
+            let rx = Int(1 & (t / 2))
+            let ry = Int(1 & (t ^ Int64(rx)))
+            let (nx, ny) = rot(n: s, x: x, y: y, rx: rx, ry: ry)
+            x = nx + s * rx
+            y = ny + s * ry
+            t /= 4; s *= 2
         }
-
-        // Write Null Terminator
-        fileHandle.seek(toFileOffset: offset + UInt64(data.count * 3))
-        fileHandle.write(Data([0, 0, 0]))
+        return (x, y)
     }
 
-    func get(key: String) throws -> String {
+    public func put(key: String, value: String) throws {
         let index = deriveIndex(key: key)
-        let curD = hVal + (index * 1600)
-        let (x, y) = d2xy(n: canvasSize, d: curD)
+        let (x, y) = d2xy(n: canvasSize, d: hVal + (index * 1600))
+        let handle = try FileHandle(forUpdating: URL(fileURLWithPath: filePath))
+        defer { try? handle.close() }
 
-        let fileURL = URL(fileURLWithPath: filePath)
-        let fileHandle = try FileHandle(forReadingFrom: fileURL)
-        defer { fileHandle.closeFile() }
+        let offset = 15 + (Int64(y) * Int64(canvasSize) + Int64(x)) * 3
+        let data = Array(value.utf8)
 
-        let offset = UInt64(15 + (y * canvasSize + x) * 3)
-        var resultData = Data()
-
-        var i = 0
-        while true {
-            let pos = offset + UInt64(i * 3)
-            fileHandle.seek(toFileOffset: pos)
-            let pixel = fileHandle.readData(ofLength: 3)
-            
-            if pixel.isEmpty || pixel[0] == 0 { break }
-            resultData.append(pixel[0])
-            i += 1
+        for (i, byte) in data.enumerated() {
+            let pos = UInt64(offset + Int64(i * 3))
+            try handle.seek(toOffset: pos)
+            var pixel = (try? handle.read(upToCount: 3)) ?? Data([0, 0, 0])
+            if pixel.count < 3 { pixel = Data([0,0,0]) }
+            var pArray = [UInt8](pixel)
+            pArray[0] ^= byte
+            try handle.seek(toOffset: pos)
+            try handle.write(contentsOf: Data(pArray))
         }
+        try handle.seek(toOffset: UInt64(offset + Int64(data.count * 3)))
+        try handle.write(contentsOf: Data([0, 0, 0]))
+    }
 
-        return String(data: resultData, encoding: .utf8) ?? ""
+    public func get(key: String) throws -> String {
+        let index = deriveIndex(key: key)
+        let (x, y) = d2xy(n: canvasSize, d: hVal + (index * 1600))
+        let handle = try FileHandle(forReadingFrom: URL(fileURLWithPath: filePath))
+        defer { try? handle.close() }
+
+        let offset = 15 + (Int64(y) * Int64(canvasSize) + Int64(x)) * 3
+        var res = Data()
+        var i: Int64 = 0
+        while true {
+            try handle.seek(toOffset: UInt64(offset + (i * 3)))
+            guard let p = try handle.read(upToCount: 3), !p.isEmpty, p[0] != 0 else { break }
+            res.append(p[0]); i += 1
+        }
+        return String(data: res, encoding: .utf8) ?? ""
     }
 }

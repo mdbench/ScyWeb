@@ -6,42 +6,52 @@ import (
 )
 
 func main() {
-	password := "ScyWeb_Global_Secret_2026"
-	imagePath := "../../vines_images/parity_test.ppm"
+
+	const testKey = "User"
+	const testValue = "Amanda"
+	const password = "ScyWeb_Global_Secret_2026"
+	const dbPath = "vines_images/go_vine.ppm"
+
+	_ = os.Mkdir("vines_images", 0755)
+	f, err := os.Create(dbPath)
+	if err != nil {
+		fmt.Printf("❌ IO Error: %v\n", err)
+		os.Exit(1)
+	}
 	
-	testKey := "user"
-	testValue := "Amanda"
+	// Exact 15-byte header: "P6 4000 4000 255\n" truncated to 15
+	header := []byte("P6 4000 4000 255\n")
+	f.Write(header[:15])
+	f.Truncate(48000015)
+	f.Close()
 
-	// Ensure PPM exists for testing
-	if _, err := os.Stat(imagePath); os.IsNotExist(err) {
-		f, _ := os.Create(imagePath)
-		f.Write([]byte("P6\n4000 4000\n255\n"))
-		empty := make([]byte, 4000*4000*3)
-		f.Write(empty)
-		f.Close()
-	}
+	// Ensure NewScyKernel and its methods are visible in the main package
+	scy := NewScyKernel(password, dbPath)
 
-	kernel := NewScyKernel(password, imagePath)
-
-	fmt.Printf("Go: Putting key '%s' with value '%s'...\n", testKey, testValue)
-	err := kernel.Put(testKey, testValue)
-	if err != nil {
-		fmt.Printf("❌ Go Error: %v\n", err)
+	// SOW: Put operation (uses 1600 offset)
+	if err := scy.Put(testKey, testValue); err != nil {
+		fmt.Printf("❌ Put Error: %v\n", err)
+		os.Remove(dbPath)
 		os.Exit(1)
 	}
 
-	fmt.Printf("Go: Getting key '%s'...\n", testKey)
-	result, err := kernel.Get(testKey)
+	// HARVEST: Get operation (uses 1600 offset)
+	result, err := scy.Get(testKey)
 	if err != nil {
-		fmt.Printf("❌ Go Error: %v\n", err)
+		fmt.Printf("❌ Get Error: %v\n", err)
+		os.Remove(dbPath)
 		os.Exit(1)
 	}
+
+	// Cleanup & Validation
+	os.Remove(dbPath)
 
 	if result == testValue {
 		fmt.Printf("✅ Go KV Parity: SUCCESS (Recovered: %s)\n", result)
 		os.Exit(0)
 	} else {
-		fmt.Printf("❌ Go KV Parity: FAIL\nExpected: %s, Got: %s\n", testValue, result)
+		fmt.Printf("❌ Go KV Parity: FAIL\n")
+		fmt.Printf("Expected: %s, Got: [%s]\n", testValue, result)
 		os.Exit(1)
 	}
 }

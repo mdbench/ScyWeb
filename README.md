@@ -1,11 +1,12 @@
 # ScyWeb
-ScyWeb is a lightweight, deployable web application that lets users scramble and unscramble image files from a browser.
+[ScyWeb](https://demos.matthewbenchimol.com/ScyWeb/ScyWeb.html) is a lightweight, deployable web application that lets users scramble and unscramble image files from a browser.
 
 ![ScyWeb Logo](https://raw.githubusercontent.com/mdbench/ScyWeb/master/ScyWebLogo.jpg)
 
 ## Working paper
 - [Future academic submission as PDF](https://raw.githubusercontent.com/mdbench/ScyWeb/refs/heads/main/WorkingPaper.pdf)
 - [LaTeX submission version](https://raw.githubusercontent.com/mdbench/ScyWeb/refs/heads/main/WorkingPaper.tex)
+- [References with links & briefs](https://demos.matthewbenchimol.com/ScyWeb/ScyWebReferences.html)
 
 ## Why is it called ScyWeb?
 A scytale is an ancient Greek transposition cipher that utilizes a rod and parchment to scramble and unscramble messages. ScyWeb was developed to provide an image cipher experience using web technologies.
@@ -79,6 +80,9 @@ The text scrambling methodology takes a text file (all text/* files supported), 
 - [Formal Mathematical Proofing Demo](https://demos.matthewbenchimol.com/ScyWeb/ScyWebMathProof.html)
 - [Reconstruction Feasibility Demo](https://demos.matthewbenchimol.com/ScyWeb/ScyWebImageTester.html)
 - [Explaining the Decoherence Wall Demo](https://demos.matthewbenchimol.com/ScyWeb/ScyWebDecoherenceWall.html)
+
+## Other Projects Under-Development
+- [Compression Demo](https://demos.matthewbenchimol.com/ScyWeb/ScyWebCompressor.html)
 
 ## Due-Outs
 - Fix pixel re-replication issue for fully compressed images on alternative method 
