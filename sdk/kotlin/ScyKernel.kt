@@ -1,5 +1,3 @@
-package sdk.kotlin
-
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.RandomAccessFile
@@ -15,7 +13,7 @@ class ScyKernel(private val password: String, private val filePath: String) {
         for (char in pwd) {
             hash = hash * 31 + char.code
         }
-        return abs(hash % 16000000)
+        return ((hash.toUInt().toDouble() / 4294967296.0) * 16000000).toInt()
     }
 
     // Deterministic FNV-1a + Alphabet Salt for Cross-Language Parity
@@ -37,7 +35,8 @@ class ScyKernel(private val password: String, private val filePath: String) {
             }
         }
         // Combine hash and salt, then constrain to 10,000 slots
-        return (abs(hash.toLong() + alphaSalt) % 16000000).toInt()
+        val finalVal = (hash.toLong() + alphaSalt).toUInt()
+        return ((finalVal.toDouble() / 4294967296.0) * 16000000).toInt()
     }
 
     private fun d2xy(n: Int, d: Int): IntArray {
@@ -72,7 +71,7 @@ class ScyKernel(private val password: String, private val filePath: String) {
 
     fun put(key: String, value: String) {
         val index = deriveIndex(key)
-        val curD = hVal + (index * 1000)
+        val curD = hVal + (index * 1600)
         val coords = d2xy(canvasSize, curD)
         val (x, y) = coords
 
@@ -95,7 +94,7 @@ class ScyKernel(private val password: String, private val filePath: String) {
 
     fun get(key: String): String {
         val index = deriveIndex(key)
-        val curD = hVal + (index * 1000)
+        val curD = hVal + (index * 1600)
         val coords = d2xy(canvasSize, curD)
         val (x, y) = coords
 

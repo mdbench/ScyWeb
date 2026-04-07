@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScyWeb | Diagnostic</title>
+    <style>
+        :root {
+            --scy-purple: #bc13fe;
+            --scy-dark: #0d0216;
+            --scy-glow: rgba(188, 19, 254, 0.3);
+            --scy-success: #00ffa3;
+        }
+        body { 
+            font-family: 'Segoe UI', 'Courier New', monospace; 
+            background: var(--scy-dark); 
+            color: #e0e0e0; 
+            padding: 20px; 
+            line-height: 1.6;
+        }
+        .container { 
+            max-width: 900px; 
+            margin: 0 auto; 
+            border: 2px solid var(--scy-purple); 
+            padding: 30px; 
+            background: #150523;
+            box-shadow: 0 0 25px var(--scy-glow);
+            border-radius: 8px;
+        }
+        h1 { 
+            text-align: center; 
+            color: var(--scy-purple); 
+            text-transform: uppercase; 
+            letter-spacing: 4px;
+            border-bottom: 1px solid var(--scy-purple);
+            padding-bottom: 15px;
+            text-shadow: 0 0 10px var(--scy-purple);
+        }
+        .status { color: #ffbc00; font-weight: bold; margin-bottom: 20px; text-align: center; font-size: 0.8rem; }
+        .input-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; color: var(--scy-purple); font-size: 0.9rem; font-weight: bold; }
+        input, textarea { 
+            width: 100%; 
+            background: #000; 
+            border: 1px solid #444; 
+            color: #fff; 
+            padding: 12px; 
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            box-sizing: border-box;
+        }
+        input:focus { border-color: var(--scy-purple); outline: none; box-shadow: 0 0 5px var(--scy-purple); }
+        .btn-row { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        button { 
+            flex: 1;
+            background: transparent; 
+            color: var(--scy-purple); 
+            border: 1px solid var(--scy-purple); 
+            padding: 12px; 
+            cursor: pointer; 
+            font-weight: bold; 
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            border-radius: 4px;
+        }
+        button:hover { background: var(--scy-purple); color: #000; box-shadow: 0 0 15px var(--scy-purple); }
+        button:disabled { border-color: #444; color: #444; cursor: not-allowed; box-shadow: none; }
+        
+        #analyzeBtn { border-color: var(--scy-success); color: var(--scy-success); }
+        #analyzeBtn:hover { background: var(--scy-success); color: #000; box-shadow: 0 0 15px var(--scy-success); }
+        
+        #log { 
+            margin-top: 20px; 
+            background: #000; 
+            height: 250px; 
+            overflow-y: scroll; 
+            padding: 15px; 
+            border: 1px solid #333; 
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: var(--scy-success);
+            border-radius: 4px;
+        }
+        .progress-container {
+            width: 100%;
+            background: #222;
+            height: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            display: none;
+        }
+        #progressFill {
+            height: 100%;
+            width: 0%;
+            background: var(--scy-purple);
+            border-radius: 5px;
+            transition: width 0.1s linear;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>ScyWeb Diagnostic</h1>
+    <div class="status" id="fileStatus">SYSTEM OFFLINE: MOUNT DATABASE</div>
+
+    <div class="input-group">
+        <button id="mountBtn">1. Mount scy_demo_database.ppm</button>
+    </div>
+
+    <div class="input-group">
+        <label>AES-256 SYSTEM SEED</label>
+        <input type="password" id="pwd" value="password123">
+    </div>
+
+    <div class="btn-row">
+        <button id="getBtn" disabled>Harvest Key</button>
+        <button id="analyzeBtn" disabled>Analyze 10k Keys</button>
+    </div>
+
+    <div class="input-group">
+        <label>VINE KEY / ANALYSIS RESULTS</label>
+        <input type="text" id="key" placeholder="e.g., Test4001">
+        <textarea id="payload" rows="3" style="margin-top:10px;" placeholder="Data output..."></textarea>
+    </div>
+
+    <div class="progress-container" id="progCont">
+        <div id="progressFill"></div>
+    </div>
+    <div id="log"></div>
+</div>
+
+<script>
+    let fileHandle;
+    const CANVAS_SIZE = 4000;
+    const TOTAL_PIXELS = 16000000;
+    const EXPECTED_SIZE = 48000015;
+
+    const log = (msg) => {
+        const div = document.getElementById('log');
+        div.innerHTML += `> ${msg}<br>`;
+        div.scrollTop = div.scrollHeight;
+    };
+
+    function rot(n, x, y, rx, ry) {
+        if (ry === 0) {
+            if (rx === 1) { x = n - 1 - x; y = n - 1 - y; }
+            return [y, x];
+        }
+        return [x, y];
+    }
+
+    function d2xy(n, d) {
+        let x = 0, y = 0, t = d;
+        for (let s = 1; s < n; s *= 2) {
+            let rx = 1 & (Math.floor(t / 2));
+            let ry = 1 & (t ^ rx);
+            [x, y] = rot(s, x, y, rx, ry);
+            x += s * rx; y += s * ry;
+            t = Math.floor(t / 4);
+        }
+        return [x, y];
+    }
+
+    function deriveIndex(key, password) {
+        let hash = 0x811c9dc5;
+        const prime = 0x01000193;
+        const combined = password + key;
+        for (let i = 0; i < combined.length; i++) {
+            hash ^= combined.charCodeAt(i);
+            hash = Math.imul(hash, prime);
+        }
+        return Math.floor(((hash >>> 0) / 4294967296) * TOTAL_PIXELS);
+    }
+
+    document.getElementById('mountBtn').addEventListener('click', async () => {
+        try {
+            [fileHandle] = await window.showOpenFilePicker();
+            const file = await fileHandle.getFile();
+            if (file.size !== EXPECTED_SIZE) {
+                log(`PARITY ERROR: ${file.size} bytes found. Expected ${EXPECTED_SIZE}.`);
+                return;
+            }
+            document.getElementById('fileStatus').innerText = `SYSTEM ONLINE: [${file.name}]`;
+            document.getElementById('getBtn').disabled = false;
+            document.getElementById('analyzeBtn').disabled = false;
+            log("Database mounted successfully. Ready for parity analysis.");
+        } catch (e) { log("Mount aborted."); }
+    });
+
+    async function harvest(key, password) {
+        const index = deriveIndex(key, password);
+        const [x, y] = d2xy(CANVAS_SIZE, index);
+        const offset = 15 + (y * CANVAS_SIZE + x) * 3;
+        const file = await fileHandle.getFile();
+        let result = "";
+        
+        // Read up to 100 bytes or until null terminator
+        const blob = file.slice(offset, offset + 300); // Buffer for triple-byte spacing
+        const buf = await blob.arrayBuffer();
+        const view = new Uint8Array(buf);
+        
+        for (let i = 0; i < 100; i++) {
+            const byte = view[i * 3];
+            if (byte === 0 || byte === undefined) break;
+            result += String.fromCharCode(byte);
+        }
+        return result;
+    }
+
+    document.getElementById('getBtn').addEventListener('click', async () => {
+        const key = document.getElementById('key').value;
+        const pwd = document.getElementById('pwd').value;
+        const result = await harvest(key, pwd);
+        document.getElementById('payload').value = result || "[EMPTY VINE]";
+        log(`Harvested ${key}: ${result ? 'Success' : 'Failed'}`);
+    });
+
+    document.getElementById('analyzeBtn').addEventListener('click', async () => {
+        const pwd = document.getElementById('pwd').value;
+        const progCont = document.getElementById('progCont');
+        const progFill = document.getElementById('progressFill');
+        progCont.style.display = 'block';
+        
+        let correct = 0;
+        let incorrect = 0;
+        const total = 10000;
+
+        log("Starting Batch Integrity Analysis (Test1 - Test10000)...");
+        
+        for (let i = 1; i <= total; i++) {
+            const key = `Test${i}`;
+            const result = await harvest(key, pwd);
+            
+            if (result.startsWith("This is a test")) {
+                correct++;
+                //log(`FOUND: ${key}`);
+            } else {
+                incorrect++;
+                log(`MISSING: ${key}`);
+            }
+
+            if (i % 100 === 0) {
+                const percent = (i / total) * 100;
+                progFill.style.width = percent + '%';
+                if (i % 1000 === 0) log(`Analyzed ${i} keys...`);
+            }
+            
+            // Allow UI to breathe
+            if (i % 200 === 0) await new Promise(r => setTimeout(r, 0));
+        }
+
+        const score = ((correct / total) * 100).toFixed(2);
+        log("---------------------------------------");
+        log(`ANALYSIS COMPLETE.`);
+        log(`TOTAL KEYS: ${total}`);
+        log(`INTEGRITY: ${correct} Correct / ${incorrect} Incorrect`);
+        log(`SUCCESS RATE: ${score}%`);
+    });
+</script>
+</body>
+</html>

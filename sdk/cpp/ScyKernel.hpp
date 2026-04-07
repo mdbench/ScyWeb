@@ -30,7 +30,10 @@ private:
                 alphaSalt += (std::tolower(c) - 'a' + 1);
             }
         }
-        return std::abs((int)(hash + alphaSalt)) % 16000000;
+        // Combine, truncate to 32-bit unsigned, then project
+        uint32_t finalVal = (uint32_t)((long)hash + alphaSalt);
+        double normalized = (static_cast<double>(finalVal) / 4294967296.0) * 16000000.0;
+        return static_cast<int>(std::floor(normalized));
     }
 
     void d2xy(int n, int d, int &x, int &y) {
@@ -57,9 +60,13 @@ private:
     }
 
     int getHVal(const std::string& pwd) {
-        int hash = 7;
-        for (char c : pwd) hash = hash * 31 + c;
-        return std::abs(hash % 16000000);
+        uint32_t hash = 7;
+        for (char c : pwd) {
+            hash = (hash * 31) + (uint8_t)c;
+        }
+        // Project onto the 16M canvas
+        double normalized = (static_cast<double>(hash) / 4294967296.0) * 16000000.0;
+        return static_cast<int>(std::floor(normalized));
     }
 
 public:
@@ -69,7 +76,7 @@ public:
 
     void put(const std::string& key, const std::string& value) {
         int index = deriveIndex(key);
-        int curD = hVal + (index * 1000);
+        int curD = hVal + (index * 1600);
         int x, y;
         d2xy(canvasSize, curD, x, y);
 
@@ -82,10 +89,17 @@ public:
 
         for (char c : value) {
             uint8_t pixel[3];
+            // Read 3 bytes (the current pixel)
             file.read((char*)pixel, 3);
-            pixel[0] ^= (uint8_t)c; // XOR Obfuscation
+            
+            pixel[0] ^= (uint8_t)c; // XOR Obfuscation on Red channel
+            
+            // Move back 3 bytes to overwrite the SAME pixel we just read
             file.seekp(-3, std::ios::cur);
             file.write((char*)pixel, 3);
+            
+            // Ensure the read pointer is also updated for the next iteration if needed
+            file.seekg(file.tellp());
         }
         // Write Null Terminator
         uint8_t term[3] = {0, 0, 0};
@@ -95,7 +109,7 @@ public:
 
     std::string get(const std::string& key) {
         int index = deriveIndex(key);
-        int curD = hVal + (index * 1000);
+        int curD = hVal + (index * 1600);
         int x, y;
         d2xy(canvasSize, curD, x, y);
 

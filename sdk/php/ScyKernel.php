@@ -15,9 +15,12 @@ class ScyKernel {
     private function getHVal($pwd) {
         $hash = 7;
         for ($i = 0; $i < strlen($pwd); $i++) {
+            // Force 32-bit wrapping math
             $hash = ($hash * 31 + ord($pwd[$i])) & 0xFFFFFFFF;
         }
-        return abs($hash % 16000000);
+        // Vectorial Normalization: (Unsigned 32-bit / 2^32) * 16M
+        $unsignedHash = (float)sprintf('%u', $hash);
+        return (int)floor(($unsignedHash / 4294967296.0) * 16000000);
     }
 
     // Deterministic FNV-1a + Alphabet Salt for Cross-Language Parity
@@ -28,20 +31,20 @@ class ScyKernel {
 
         $lowerKey = strtolower($key);
         for ($i = 0; $i < strlen($key); $i++) {
-            $char = $key[$i];
             // FNV-1a Math: XOR then Multiply (constrained to 32-bit)
-            $hash ^= ord($char);
+            $hash ^= ord($key[$i]);
+            // Multiply and immediately mask to 32-bits
             $hash = ($hash * $prime) & 0xFFFFFFFF;
 
             // Alphabet Salt (a=1, b=2...)
-            if (ctype_alpha($char)) {
+            if (ctype_alpha($key[$i])) {
                 $alphaSalt += (ord($lowerKey[$i]) - ord('a') + 1);
             }
         }
         
-        // Ensure $hash is treated as an unsigned integer before adding salt
-        $unsignedHash = sprintf('%u', $hash);
-        return abs((int)$unsignedHash + $alphaSalt) % 16000000;
+        // Combine, cast to unsigned float, and project
+        $finalVal = (float)sprintf('%u', ($hash + $alphaSalt) & 0xFFFFFFFF);
+        return (int)floor(($finalVal / 4294967296.0) * 16000000);
     }
 
     private function rot($n, $x, $y, $rx, $ry) {
@@ -70,7 +73,7 @@ class ScyKernel {
 
     public function put($key, $value) {
         $index = $this->deriveIndex($key);
-        $curD = $this->hVal + ($index * 1000);
+        $curD = $this->hVal + ($index * 1600);
         [$x, $y] = $this->d2xy($this->canvasSize, $curD);
 
         $fp = fopen($this->filePath, 'r+b');
@@ -96,7 +99,7 @@ class ScyKernel {
 
     public function get($key) {
         $index = $this->deriveIndex($key);
-        $curD = $this->hVal + ($index * 1000);
+        $curD = $this->hVal + ($index * 1600);
         [$x, $y] = $this->d2xy($this->canvasSize, $curD);
 
         $fp = fopen($this->filePath, 'rb');

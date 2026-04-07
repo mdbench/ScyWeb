@@ -25,7 +25,7 @@ impl ScyKernel {
         for c in pwd.chars() {
             hash = hash.wrapping_mul(31).wrapping_add(c as i32);
         }
-        hash.abs() % 16000000
+        (((hash as u32) as f64 / 4294967296.0) * 16000000.0) as i32
     }
 
     // Deterministic FNV-1a + Alphabet Salt for Cross-Language Parity
@@ -47,8 +47,8 @@ impl ScyKernel {
             }
         }
         
-        let combined = (hash as i64) + alpha_salt;
-        (combined.abs() % 16000000) as i32
+        let combined = (hash as i64 + alpha_salt) as u32;
+        ((combined as f64 / 4294967296.0) * 16000000.0) as i32
     }
 
     fn rot(&self, n: i32, mut x: i32, mut y: i32, rx: i32, ry: i32) -> (i32, i32) {
@@ -80,7 +80,7 @@ impl ScyKernel {
 
     pub fn put(&self, key: &str, value: &str) -> std::io::Result<()> {
         let index = self.derive_index(key);
-        let cur_d = self.h_val + (index * 1000);
+        let cur_d = self.h_val + (index * 1600);
         let (x, y) = self.d2xy(self.canvas_size, cur_d);
 
         let mut file = OpenOptions::new().read(true).write(true).open(&self.file_path)?;
@@ -108,7 +108,7 @@ impl ScyKernel {
 
     pub fn get(&self, key: &str) -> std::io::Result<String> {
         let index = self.derive_index(key);
-        let cur_d = self.h_val + (index * 1000);
+        let cur_d = self.h_val + (index * 1600);
         let (x, y) = self.d2xy(self.canvas_size, cur_d);
 
         let mut file = OpenOptions::new().read(true).open(&self.file_path)?;

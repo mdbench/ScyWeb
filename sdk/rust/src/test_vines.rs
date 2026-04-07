@@ -1,5 +1,4 @@
-mod scy_kernel;
-use scy_kernel::ScyKernel;
+use scy_rust::ScyKernel;
 use std::fs;
 use std::process;
 

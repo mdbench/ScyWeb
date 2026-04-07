@@ -13,7 +13,7 @@ class ScyKernel:
         hash_val = 7
         for char in pwd:
             hash_val = (hash_val * 31 + ord(char)) & 0xFFFFFFFF
-        return abs(hash_val % 16000000)
+        return int((hash_val / 4294967296.0) * 16000000)
 
     def _derive_index(self, key):
         # FNV-1a constants
@@ -32,7 +32,8 @@ class ScyKernel:
             if lower_key[i].isalpha():
                 alpha_salt += (ord(lower_key[i]) - ord('a') + 1)
         
-        return abs(hash_val + alpha_salt) % 16000000
+        final_val = (hash_val + alpha_salt) & 0xFFFFFFFF
+        return int((final_val / 4294967296.0) * 16000000)
 
     def _rot(self, n, x, y, rx, ry):
         if ry == 0:
@@ -58,7 +59,7 @@ class ScyKernel:
 
     def put(self, key, value):
         index = self._derive_index(key)
-        cur_d = self.h_val + (index * 1000)
+        cur_d = self.h_val + (index * 1600)
         x, y = self._d2xy(self.canvas_size, cur_d)
         
         data = value.encode('utf-8')
@@ -73,6 +74,7 @@ class ScyKernel:
                 # XOR Obfuscation on the Red channel
                 original_r = mm[pixel_pos]
                 mm[pixel_pos] = original_r ^ byte
+                # mm[pixel_pos:pixel_pos+1] = bytes([mm[pixel_pos] ^ byte])
             
             # Write Null Terminator
             term_pos = offset + (len(data) * 3)
@@ -81,7 +83,7 @@ class ScyKernel:
 
     def get(self, key):
         index = self._derive_index(key)
-        cur_d = self.h_val + (index * 1000)
+        cur_d = self.h_val + (index * 1600)
         x, y = self._d2xy(self.canvas_size, cur_d)
         
         offset = 15 + (y * self.canvas_size + x) * 3

@@ -61,9 +61,9 @@
             const img = new Image();
             img.onload = function() {
                 if (img.width !== img.height) {
-           log(`<br>ScyWeb Error: Image must be a square (Current: ${img.width}x${img.height})`);
-            return;
-        }
+                    log(`<br>ScyWeb Error: Image must be a square (Current: ${img.width}x${img.height})`);
+                    return;
+                }
                 const n = 256; canvas.width = n; canvas.height = n;
                 ctx.drawImage(img, 0, 0, n, n);
                 const pix = ctx.getImageData(0, 0, n, n).data;

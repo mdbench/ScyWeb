@@ -43,6 +43,7 @@ jobs:
         run: |
           cd sdk/python
           pip install -r requirements.txt
+          export PYTHONPATH=$PYTHONPATH:.
           python test_vines.py
 
       # --- JAVASCRIPT & REACT NATIVE ---
@@ -79,7 +80,7 @@ jobs:
         if: matrix.kernel == 'go'
         run: |
           cd sdk/go
-          go run test_vines.go
+          go run .
 
       # --- JAVA & KOTLIN ---
       - name: Setup Java/Kotlin
@@ -112,5 +113,5 @@ jobs:
         if: matrix.kernel == 'swift'
         run: |
           cd sdk/swift
-          # Use swift interpret mode for a single file test
-          swift test_vines.swift
+          swiftc ScyKernel.swift test_vines.swift -o test_runner
+          ./test_runner

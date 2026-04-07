@@ -1,5 +1,3 @@
-package sdk.java;
-
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 
@@ -20,7 +18,7 @@ public class ScyKernel {
         for (int i = 0; i < pwd.length(); i++) {
             hash = hash * 31 + pwd.charAt(i);
         }
-        return Math.abs(hash % 16000000);
+        return (int) (((double) (hash & 0xFFFFFFFFL) / 4294967296.0) * 16000000);
     }
 
     // Deterministic FNV-1a Hash + Alphabet Salt for Cross-Language Parity
@@ -41,7 +39,8 @@ public class ScyKernel {
                 alphaSalt += (lowerKey.charAt(i) - 'a' + 1);
             }
         }
-        return (int) (Math.abs(hash + alphaSalt) % 16000000);
+        long finalHash = (hash + alphaSalt) & 0xFFFFFFFFL;
+        return (int) (((double) finalHash / 4294967296.0) * 16000000);
     }
 
     private int[] d2xy(int n, int d) {
@@ -70,7 +69,7 @@ public class ScyKernel {
 
     public void put(String key, String value) throws IOException {
         int index = deriveIndex(key);
-        int curD = hVal + (index * 1000);
+        int curD = hVal + (index * 1600);
         int[] coords = d2xy(canvasSize, curD);
         int x = coords[0], y = coords[1];
 
@@ -95,7 +94,7 @@ public class ScyKernel {
 
     public String get(String key) throws IOException {
         int index = deriveIndex(key);
-        int curD = hVal + (index * 1000);
+        int curD = hVal + (index * 1600);
         int[] coords = d2xy(canvasSize, curD);
         int x = coords[0], y = coords[1];
 

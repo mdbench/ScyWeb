@@ -14,29 +14,32 @@ class ScyKernel {
         for (let i = 0; i < pwd.length; i++) {
             hash = (hash * 31 + pwd.charCodeAt(i)) | 0;
         }
-        return Math.abs(hash % 16000000);
+        // Vectorial Normalization: (Unsigned 32-bit / 2^32) * 16M
+        const unsignedHash = hash >>> 0;
+        return Math.floor((unsignedHash / 4294967296.0) * 16000000);
     }
 
     // Deterministic FNV-1a + Alphabet Salt for Cross-Language Parity
     _deriveIndex(key) {
-        let hash = 0x811c9dc5;
+        let hash = 0x811c9dc5 >>> 0;
         const prime = 0x01000193;
         let alphaSalt = 0;
-
         const lowerKey = key.toLowerCase();
+
         for (let i = 0; i < key.length; i++) {
             const charCode = key.charCodeAt(i);
             // FNV-1a XOR then Multiply (32-bit unsigned)
             hash ^= charCode;
-            hash = Math.imul(hash, prime);
+            hash = Math.imul(hash, prime) >>> 0;
 
             // Alphabet Salt (a=1, b=2...)
             if (/[a-z]/.test(lowerKey[i])) {
-                alphaSalt += (lowerKey.charCodeAt(i) - 96);
+                alphaSalt += (lowerKey.charCodeAt(i) - 97 + 1);
             }
         }
         // Ensure unsigned 32-bit result before salt and modulo
-        return Math.abs((hash >>> 0) + alphaSalt) % 16000000;
+        const finalVal = (hash + alphaSalt) >>> 0;
+        return Math.floor((finalVal / 4294967296.0) * 16000000);
     }
 
     _rot(n, x, y, rx, ry) {
@@ -65,7 +68,7 @@ class ScyKernel {
 
     async put(key, value) {
         const index = this._deriveIndex(key);
-        const curD = this.hVal + (index * 1000);
+        const curD = this.hVal + (index * 1600);
         const [x, y] = this._d2xy(this.canvasSize, curD);
 
         const offset = 15 + (y * this.canvasSize + x) * 3;
@@ -91,7 +94,7 @@ class ScyKernel {
 
     async get(key) {
         const index = this._deriveIndex(key);
-        const curD = this.hVal + (index * 1000);
+        const curD = this.hVal + (index * 1600);
         const [x, y] = this._d2xy(this.canvasSize, curD);
 
         const offset = 15 + (y * this.canvasSize + x) * 3;

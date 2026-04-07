@@ -1,4 +1,23 @@
-import ScyKernel from './ScyKernel';
+import fs from 'fs/promises';
+
+// Mock RNFS to use Node's filesystem for CI parity
+const RNFS = {
+    read: async (path, length, position, encoding) => {
+        const buffer = Buffer.alloc(length);
+        const fileHandle = await fs.open(path, 'r');
+        await fileHandle.read(buffer, 0, length, position);
+        await fileHandle.close();
+        return buffer.toString(encoding);
+    },
+    write: async (path, content, position, encoding) => {
+        const buffer = Buffer.from(content, encoding);
+        const fileHandle = await fs.open(path, 'r+');
+        await fileHandle.write(buffer, 0, buffer.length, position);
+        await fileHandle.close();
+    }
+};
+
+import ScyKernel from './ScyKernel.js';
 import RNFS from 'react-native-fs';
 
 const password = "ScyWeb_Global_Secret_2026";

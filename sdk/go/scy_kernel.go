@@ -35,7 +35,7 @@ func (k *ScyKernel) getHVal(pwd string) int {
 	if hash < 0 {
 		hash = -hash
 	}
-	return hash % 16000000
+	return int((float64(hash) / 4294967296.0) * 16000000)
 }
 
 // Manual FNV-1a + Alphabet Salt for Cross-Language Parity
@@ -58,7 +58,7 @@ func (k *ScyKernel) deriveIndex(key string) int {
 	if result < 0 {
 		result = -result
 	}
-	return result % 16000000
+	return int((float64(uint32(result)) / 4294967296.0) * 16000000)
 }
 
 func (k *ScyKernel) rot(n, x, y, rx, ry int) (int, int) {
@@ -88,7 +88,7 @@ func (k *ScyKernel) d2xy(n, d int) (int, int) {
 
 func (k *ScyKernel) Put(key, value string) error {
 	index := k.deriveIndex(key)
-	curD := k.hVal + (index * 1000)
+	curD := k.hVal + (index * 1600)
 	x, y := k.d2xy(k.canvasSize, curD)
 
 	file, err := os.OpenFile(k.filePath, os.O_RDWR, 0644)

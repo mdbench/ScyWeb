@@ -13,12 +13,14 @@ class ScyKernel {
     }
 
     private func getHVal(pwd: String) -> Int {
-        var hash: Int32 = 7
+        var hash: UInt32 = 7
         for char in pwd.unicodeScalars {
-            hash = hash.addingReportingOverflow(hash.multipliedReportingOverflow(by: 30).partialValue).partialValue
-            hash = hash.addingReportingOverflow(Int32(char.value)).partialValue
+            // Use &* and &+ for clean 32-bit wrapping parity
+            hash = (hash &* 31) &+ UInt32(char.value)
         }
-        return abs(Int(hash % 16000000))
+        // Vectorial Normalization: (Hash / 2^32) * 16M
+        let normalized = (Double(hash) / 4294967296.0) * 16000000.0
+        return Int(normalized)
     }
 
     // Deterministic FNV-1a + Alphabet Salt for Cross-Language Parity
@@ -33,19 +35,24 @@ class ScyKernel {
 
         for i in 0..<keyScalars.count {
             let scalar = keyScalars[i]
+            let lowerScalar = lowerScalars[i]
+            
             // FNV-1a Math (32-bit unsigned wrapping)
             hash ^= UInt32(scalar.value)
             hash = hash &* prime
 
             // Alphabet Salt (a=1, b=2...)
-            if CharacterSet.letters.contains(scalar) {
-                let saltVal = Int64(lowerScalars[i].value) - Int64(Unicode.Scalar("a").value) + 1
-                alphaSalt += salt_val
+            if CharacterSet.letters.contains(lowerScalar) {
+                // Fix: Added ! to force unwrap and fixed variable naming
+                let saltVal = Int64(lowerScalar.value) - Int64(Unicode.Scalar("a")!.value) + 1
+                alphaSalt += saltVal
             }
         }
         
-        let combined = Int64(hash) + alphaSalt
-        return Int(abs(combined) % 16000000)
+        // Combine hash and salt, force into a UInt32 container, then project
+        let finalVal = UInt32(truncatingIfNeeded: Int64(hash) + alphaSalt)
+        let normalized = (Double(finalVal) / 4294967296.0) * 16000000.0
+        return Int(normalized)
     }
 
     private func rot(n: Int, x: Int, y: Int, rx: Int, ry: Int) -> (Int, Int) {
@@ -79,7 +86,7 @@ class ScyKernel {
 
     func put(key: String, value: String) throws {
         let index = deriveIndex(key: key)
-        let curD = hVal + (index * 1000)
+        let curD = hVal + (index * 1600)
         let (x, y) = d2xy(n: canvasSize, d: curD)
 
         let fileURL = URL(fileURLWithPath: filePath)
@@ -110,7 +117,7 @@ class ScyKernel {
 
     func get(key: String) throws -> String {
         let index = deriveIndex(key: key)
-        let curD = hVal + (index * 1000)
+        let curD = hVal + (index * 1600)
         let (x, y) = d2xy(n: canvasSize, d: curD)
 
         let fileURL = URL(fileURLWithPath: filePath)

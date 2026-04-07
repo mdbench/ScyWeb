@@ -11,31 +11,33 @@ class ScyKernel {
     _getHVal(pwd) {
         let hash = 7;
         for (let i = 0; i < pwd.length; i++) {
-            hash = (hash * 31 + pwd.charCodeAt(i)) | 0;
+            // Force 32-bit integer parity with C++
+            hash = (Math.imul(hash, 31) + pwd.charCodeAt(i)) | 0;
         }
-        return Math.abs(hash % 16000000);
+        const unsignedHash = hash >>> 0;
+        // Vectorial Normalization: (Unsigned 32-bit / 2^32) * 16M
+        return Math.floor((unsignedHash / 4294967296.0) * 16000000);
     }
 
     // Deterministic FNV-1a + Alphabet Salt for Parity
     _deriveIndex(key) {
-        let hash = 0x811c9dc5;
+        let hash = 0x811c9dc5 >>> 0;
         const prime = 0x01000193;
         let alphaSalt = 0;
 
         const lowerKey = key.toLowerCase();
         for (let i = 0; i < key.length; i++) {
-            const charCode = key.charCodeAt(i);
-            // FNV-1a XOR then Multiply (32-bit unsigned)
-            hash ^= charCode;
-            hash = Math.imul(hash, prime);
+            hash ^= key.charCodeAt(i);
+            hash = Math.imul(hash, prime) >>> 0;
 
-            // Alphabet Salt (a=1, b=2...)
             if (/[a-z]/.test(lowerKey[i])) {
-                alphaSalt += (lowerKey.charCodeAt(i) - 96);
+                // Parity fix: 'a' should be 1 (charCode 97 - 96)
+                alphaSalt += (lowerKey.charCodeAt(i) - 97 + 1);
             }
         }
-        // Ensure unsigned 32-bit result before salt and modulo
-        return Math.abs((hash >>> 0) + alphaSalt) % 16000000;
+        // Combine hash and salt, clamp to 32-bit unsigned, and project
+        const finalVal = (hash + alphaSalt) >>> 0;
+        return Math.floor((finalVal / 4294967296.0) * 16000000);
     }
 
     _rot(n, x, y, rx, ry) {
@@ -51,12 +53,16 @@ class ScyKernel {
 
     _d2xy(n, d) {
         let x = 0, y = 0, t = d;
+        // s starts at 1 and doubles each iteration (1, 2, 4, 8...)
         for (let s = 1; s < n; s *= 2) {
             const rx = 1 & (Math.floor(t / 2));
             const ry = 1 & (t ^ rx);
-            [x, y] = this._rot(s, x, y, rx, ry);
-            x += s * rx;
-            y += s * ry;
+            
+            // pass 's' (current quadrant size), not 'n'
+            const [nx, ny] = this._rot(s, x, y, rx, ry);
+            x = nx + s * rx;
+            y = ny + s * ry;
+            
             t = Math.floor(t / 4);
         }
         return [x, y];
@@ -64,7 +70,7 @@ class ScyKernel {
 
     put(key, value) {
         const index = this._deriveIndex(key);
-        const curD = this.hVal + (index * 1000);
+        const curD = this.hVal + (index * 1600);
         const [x, y] = this._d2xy(this.canvasSize, curD);
 
         const fd = fs.openSync(this.filePath, 'r+');
@@ -88,7 +94,7 @@ class ScyKernel {
 
     get(key) {
         const index = this._deriveIndex(key);
-        const curD = this.hVal + (index * 1000);
+        const curD = this.hVal + (index * 1600);
         const [x, y] = this._d2xy(this.canvasSize, curD);
 
         const fd = fs.openSync(this.filePath, 'r');
