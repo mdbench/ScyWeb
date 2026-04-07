@@ -69,7 +69,7 @@ To maintain cross-language parity, use these official integration methods. This 
 
 | Language | Method | Command / Config |
 | :--- | :--- | :--- |
-| **Node.js** | NPM | `npm install github:mdbench/ScyWeb#subdirectory=sdk/node` |
+| **Node.js** | NPM | `npm install github:mdbench/ScyWeb#subdirectory=sdk/javascript` |
 | **Go** | Go Modules | `go get github.com/mdbench/ScyWeb/sdk/go` |
 | **Rust** | Cargo | `scyweb = { git = "https://github.com/mdbench/ScyWeb" }` |
 | **Python** | Pip | `pip install git+https://github.com/mdbench/ScyWeb.git#subdirectory=sdk/python` |

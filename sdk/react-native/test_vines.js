@@ -1,62 +1,51 @@
-import React, { useEffect, useState } from 'react';
-import { Text, View, ScrollView } from 'react-native';
-import ScyKernel from './ScyKernel'; 
-import RNFS from 'react-native-fs'; // Common RN Filesystem lib
+import fs from 'fs';
+import path from 'path';
+import ScyKernel from './ScyKernel.js';
 
-const TestVines = () => {
-  const [log, setLog] = useState("⏳ Initializing React-Native Parity Test...");
-
-  const runTest = async () => {
+async function runSimulation() {
     const testKey = "User";
     const testValue = "Amanda";
     const password = "ScyWeb_Global_Secret_2026";
-    const dbPath = `${RNFS.DocumentDirectoryPath}/rn_vine.ppm`;
+    const dirName = 'vine_images';
+    
+    if (!fs.existsSync(dirName)) {
+        fs.mkdirSync(dirName, { recursive: true });
+    }
+    const dbPath = path.join(dirName, 'rn_vine.ppm');
 
     try {
-      // RNFS.writeFile handles the 15-byte header parity
-      const header = "P6 4000 4000 255\n".substring(0, 15);
-      await RNFS.writeFile(dbPath, header, 'ascii');
+        // Initialize 15-byte header
+        const header = "P6 4000 4000 255\n".substring(0, 15);
+        fs.writeFileSync(dbPath, header, 'ascii');
 
-      // Note: Most RN file libs don't have ftruncate. 
-      // We fill the "soil" with null bytes to reach 48,000,015.
-      // In a real app, you'd ship a pre-allocated asset.
-      const dummyData = "\0".repeat(1024 * 1024); // 1MB chunk
-      for(let i = 0; i < 47; i++) {
-          await RNFS.appendFile(dbPath, dummyData, 'ascii');
-      }
+        // Pre-allocate 48MB (Fast Truncate)
+        const fd = fs.openSync(dbPath, 'r+');
+        fs.truncateSync(dbPath, 48000015);
+        fs.closeSync(fd);
 
-      // INITIALIZE KERNEL
-      const scy = new ScyKernel(password, dbPath);
+        const scy = new ScyKernel(password, dbPath);
 
-      // SOW: Put operation (Must use 1600 offset internally)
-      await scy.put(testKey, testValue);
+        // Execute Operations
+        await scy.put(testKey, testValue);
+        const result = await scy.get(testKey);
 
-      // HARVEST: Get operation
-      const result = await scy.get(testKey);
+        // Cleanup
+        if (fs.existsSync(dbPath)) {
+            fs.unlinkSync(dbPath);
+        }
 
-      // CLEANUP & VALIDATION
-      if (await RNFS.exists(dbPath)) {
-        await RNFS.unlink(dbPath);
-      }
-
-      if (result === testValue) {
-        setLog(prev => prev + `\n✅ RN KV Parity: SUCCESS\n(Recovered: ${result})`);
-      } else {
-        setLog(prev => prev + `\n❌ RN KV Parity: FAIL\nExpected: ${testValue}, Got: [${result}]`);
-      }
+        if (result === testValue) {
+            console.log(`✅ RN KV Parity: SUCCESS (Recovered: ${result})`);
+            process.exit(0);
+        } else {
+            console.log(`❌ RN KV Parity: FAIL (Expected: ${testValue}, Got: [${result}])`);
+            process.exit(1);
+        }
 
     } catch (err) {
-      setLog(prev => prev + `\n❌ RN SDK Error: ${err.message}`);
+        console.error(`❌ Simulation Error: ${err.message}`);
+        process.exit(1);
     }
-  };
+}
 
-  useEffect(() => { runTest(); }, []);
-
-  return (
-    <ScrollView style={{ padding: 20, backgroundColor: '#1a1a1a' }}>
-      <Text style={{ color: '#00ff00', fontFamily: 'monospace' }}>{log}</Text>
-    </ScrollView>
-  );
-};
-
-export default TestVines;
+runSimulation();

@@ -98,7 +98,7 @@ jobs:
           else
             # Install Kotlin compiler on Ubuntu runner
             sudo apt-get update && sudo apt-get install -y kotlin
-            kotlinc ScyKernel.kt test_vines.kt -include-runtime -d test.jar && java -jar test.jar
+            kotlinc ScyKernel.kt test_vines.kt -include-runtime -d test_vines.jar && java -jar test_vines.jar
           fi
 
       # --- PHP ---

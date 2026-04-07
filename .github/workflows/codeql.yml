@@ -1,0 +1,51 @@
+name: "CodeQL Analysis"
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  schedule:
+    - cron: '30 18 * * 4'
+
+jobs:
+  analyze:
+    name: Analyze
+    # Swift MUST run on macOS. Other languages run on Ubuntu.
+    runs-on: ${{ (matrix.language == 'swift') && 'macos-latest' || 'ubuntu-latest' }}
+    timeout-minutes: 360
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # 'java-kotlin' covers Kotlin SDK files
+        language: [ 'javascript', 'java-kotlin', 'swift' ]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    # Initializes the CodeQL tools for scanning.
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: ${{ matrix.language }}
+        # Set build-mode to 'none' for Kotlin/Swift since there is no gradle/xcode project.
+        # This prevents the 'autobuild' errors seen in your screenshot.
+        build-mode: ${{ (matrix.language == 'java-kotlin' || matrix.language == 'swift') && 'none' || 'autobuild' }}
+
+    # Only run Autobuild for JavaScript (or other supported languages)
+    # This prevents Kotlin and Swift from crashing the action.
+    - name: Autobuild
+      if: matrix.language != 'java-kotlin' && matrix.language != 'swift'
+      uses: github/codeql-action/autobuild@v3
+
+    # Perform the actual analysis
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+      with:
+        category: "/language:${{matrix.language}}"
