@@ -1,1 +1,28 @@
-name: CodeQL \n\n# Run CodeQL analysis on every push and pull request\nname: "CodeQL"\n\non: [push, pull_request]\n\njobs:\n  analyze:\n    name: Analyze\n    runs-on: ubuntu-latest\n    steps:\n      - name: Checkout code\n        uses: actions/checkout@v2\n\n      - name: Setup Node.js for JavaScript\n        uses: actions/setup-node@v2\n        with:\n          node-version: '14'\n\n      - name: Cache Gradle packages\n        uses: actions/cache@v2\n        with:\n          path: ~/.gradle/caches\n          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}\n\n      - name: Run JavaScript autobuild\n        run: |\n          npm install\n          npm run build\n\n      - name: Setup Swift environment\n        run: |\n          swift package setup\n\n      - name: Build Java project with Gradle\n        run: |\n          ./gradlew build -Dorg.gradle.java.home=/path/to/java17\n\n      - name: Run CodeQL analysis\n        uses: github/codeql-action/analyze@latest\n        with:\n          language: javascript, java, swift\n
+name: CodeQL
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Setup CodeQL
+        uses: github/codeql-action/init@v2
+        with:
+          languages: javascript, swift, java
+
+      - name: Run CodeQL
+        uses: github/codeql-action/analyze@v2
+        with:
+          category: 'security'
+          output: results.sarif
