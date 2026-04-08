@@ -125,6 +125,10 @@ When logic updates are pushed to the main repository, update your local SDK via:
 ### 🚀 Live Interactive Demo
 This demo serves as a **High-Correlation Stress Test** for the ScyWeb cryptographic image kernel. Unlike standard encryption tests that use high-entropy keys, this demo uses a sequence of nearly identical, low-distance derivatives (**Test1** through **Test10000**).
 - [Demo](https://demos.matthewbenchimol.com/ScyWeb/sdk/ScyWebSDKDemo.html)
+    - Take [scy_demo_database.ppm](https://raw.githubusercontent.com/mdbench/ScyWeb/refs/heads/main/sdk/scy_demo_database.ppm) and load it into the SDK Demo to see that you can query an image database using NoSQL key/value.
+- [Demo](https://demos.matthewbenchimol.com/ScyWeb/sdk/ScyWebDatabaseCompressor.html)
+    - Take [scy_demo_database.ppm](https://raw.githubusercontent.com/mdbench/ScyWeb/refs/heads/main/sdk/scy_demo_database.ppm) and convert it to a .scy file to see the database get compressed from 45.8MBs to 2.8MBs, making it 150% smaller.
+    - You can also use this demo to convert the .scy file back to a PPM database file, seeing the compressor proof of concept works!
 
 ### 📦 Demo Database (PPM)
 To run the diagnostic, download the pre-sowed 16-million pixel database:

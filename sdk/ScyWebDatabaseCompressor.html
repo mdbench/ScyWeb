@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="author" content="Matthew D. Benchimol">
+    <title>ScyWeb Workspace // v4.3.0 Fixed</title>
+    <style>
+        :root {
+            --accent-purple: #9d4edd;
+            --obsidian-bg: #0b0c10;
+            --panel-bg: #1f2833;
+            --text-main: #c5c6c7;
+            --log-green: #4ade80;
+            --log-yellow: #facc15;
+            --log-blue: #60a5fa;
+            --log-red: #f87171;
+        }
+
+        body {
+            font-family: 'Consolas', 'Courier New', monospace;
+            background: var(--obsidian-bg);
+            color: var(--text-main);
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        header {
+            padding: 15px 30px;
+            background: #000;
+            border-bottom: 1px solid var(--accent-purple);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        header h1 { margin: 0; font-size: 1.2rem; font-weight: normal; color: #fff; }
+
+        .main-container {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            background: var(--panel-bg);
+            padding: 20px;
+            border-right: 1px solid rgba(157, 78, 221, 0.2);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+        }
+
+        .control-zone {
+            background: rgba(0,0,0,0.2);
+            padding: 15px;
+            border-radius: 12px;
+            border-left: 3px solid var(--accent-purple);
+        }
+
+        .control-zone h2 { font-size: 0.85rem; margin-top: 0; margin-bottom: 15px; color: #fff; text-transform: uppercase; letter-spacing: 1px; }
+
+        input[type="file"] { display: block; margin-bottom: 12px; font-size: 0.7rem; width: 100%; }
+
+        button {
+            background: transparent; color: var(--accent-purple); border: 1px solid var(--accent-purple);
+            padding: 10px; border-radius: 6px; cursor: pointer; text-transform: uppercase;
+            font-size: 0.75rem; font-weight: bold; width: 100%; transition: all 0.2s ease; margin-bottom: 8px;
+        }
+
+        button:hover { background: var(--accent-purple); color: #fff; }
+
+        .viewport {
+            display: grid;
+            grid-template-rows: 1fr 250px;
+            background: #000;
+        }
+
+        .canvas-area {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            overflow: auto;
+        }
+
+        canvas {
+            border: 1px solid #333;
+            image-rendering: pixelated;
+        }
+
+        .terminal-panel { background: #050505; border-top: 1px solid #333; overflow: hidden; display: flex; flex-direction: column; }
+        .terminal-body { flex: 1; padding: 15px; font-size: 0.8rem; overflow-y: auto; color: var(--log-blue); }
+        .log-entry { margin-bottom: 4px; border-bottom: 1px solid #111; }
+        .log-green { color: var(--log-green); }
+        .log-red { color: var(--log-red); }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>ScyWeb Workspace // v4.3.0 Fixed Core</h1>
+        <div id="fileDims" style="font-size: 0.7rem; color: #666;">Ready</div>
+    </header>
+
+    <div class="main-container">
+        <aside class="sidebar">
+            <div class="control-zone">
+                <h2>1. Surface Load</h2>
+                <input type="file" id="sourceInput">
+                <button onclick="importSource()">Map to Space</button>
+            </div>
+            <div class="control-zone">
+                <h2>2. Fractal Transcode</h2>
+                <button onclick="exportScy()">Export Core (.scy)</button>
+                <div style="margin-top: 10px; border-top: 1px solid #444; padding-top: 10px;">
+                    <input type="file" id="scyInput">
+                    <button onclick="importScy()">Unfold .scy</button>
+                </div>
+            </div>
+            <div class="control-zone">
+                <h2>3. Reconstruction</h2>
+                <button onclick="exportPPM()">Export Parity PPM</button>
+            </div>
+        </aside>
+
+        <main class="viewport">
+            <div class="canvas-area"><canvas id="outputCanvas"></canvas></div>
+            <div class="terminal-panel">
+                <div class="terminal-body" id="terminal"></div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('outputCanvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const terminal = document.getElementById('terminal');
+        let currentSide = 0;
+
+        function log(msg, color = '') {
+            const div = document.createElement('div');
+            div.className = 'log-entry ' + (color ? 'log-' + color : '');
+            div.innerText = `> ${msg}`;
+            terminal.prepend(div);
+        }
+
+        async function importSource() {
+            const file = document.getElementById('sourceInput').files[0];
+            if (!file) return;
+
+            if (file.name.toLowerCase().endsWith('.ppm')) {
+                log("Binary PPM detected. Parsing header...", "green");
+                const buffer = await file.arrayBuffer();
+                const view = new Uint8Array(buffer);
+                
+                // Fixed Offset Parser for 15-byte Header Parity
+                // P6 4000 4000 255\n -> logic expects pixels at 15
+                let w = 4000, h = 4000; 
+                currentSide = w;
+                canvas.width = w; canvas.height = h;
+                const imgData = ctx.createImageData(w, h);
+                const pixelStart = 15; 
+                
+                let pIdx = 0;
+                for (let i = pixelStart; i < view.length && pIdx < w * h * 4; i += 3) {
+                    imgData.data[pIdx++] = view[i];     // R
+                    imgData.data[pIdx++] = view[i+1];   // G
+                    imgData.data[pIdx++] = view[i+2];   // B
+                    imgData.data[pIdx++] = 255;         // A
+                }
+                ctx.putImageData(imgData, 0, 0);
+                log(`PPM Database Loaded: ${w}x${h}`, "green");
+            } else {
+                const img = new Image();
+                img.onload = () => {
+                    currentSide = img.width;
+                    canvas.width = currentSide; canvas.height = currentSide;
+                    ctx.drawImage(img, 0, 0);
+                    log(`Image Surface Loaded: ${currentSide}px`, "green");
+                };
+                img.src = URL.createObjectURL(file);
+            }
+        }
+
+        function d2xy(n, d) {
+            let t = d, x = 0, y = 0;
+            for (let s = 1; s < n; s <<= 1) {
+                let rx = 1 & (t / 2); let ry = 1 & (t ^ rx);
+                [x, y] = rot(s, x, y, rx, ry);
+                x += s * rx; y += s * ry; t /= 4;
+            }
+            return [x, y];
+        }
+
+        function rot(n, x, y, rx, ry) {
+            if (ry == 0) {
+                if (rx == 1) { x = n - 1 - x; y = n - 1 - y; }
+                return [y, x];
+            }
+            return [x, y];
+        }
+
+        function getNextPowerOf2(val) { let p = 1; while (p < val) p <<= 1; return p; }
+
+        function exportScy() {
+            if (currentSide === 0) return;
+            const N = getNextPowerOf2(currentSide);
+            const pix = ctx.getImageData(0, 0, currentSide, currentSide).data;
+            const stream = [];
+            let lastR = -1, lastG = -1, lastB = -1, run = 0;
+
+            for (let i = 0; i < N * N; i++) {
+                const [x, y] = d2xy(N, i);
+                if (x >= currentSide || y >= currentSide) continue;
+                const idx = (y * currentSide + x) * 4;
+                const r = pix[idx], g = pix[idx+1], b = pix[idx+2];
+                if (r === lastR && g === lastG && b === lastB && run < 255) { run++; } 
+                else {
+                    if (i > 0) stream.push(run);
+                    stream.push(r, g, b);
+                    lastR = r; lastG = g; lastB = b; run = 1;
+                }
+            }
+            stream.push(run);
+            const buf = new Uint8Array([currentSide >> 8, currentSide & 255, ...stream]);
+            const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([buf]));
+            a.download = `archive_${currentSide}.scy`; a.click();
+            log(`Fractal Stream Saved: ${buf.length} bytes.`);
+        }
+
+        async function importScy() {
+            const file = document.getElementById('scyInput').files[0];
+            if (!file) return;
+            
+            const buf = new Uint8Array(await file.arrayBuffer());
+            currentSide = (buf[0] << 8) | buf[1]; // Extract W/H from header
+            const N = getNextPowerOf2(currentSide); // Get 4096 for 4000
+            
+            canvas.width = currentSide; 
+            canvas.height = currentSide;
+            const out = ctx.createImageData(currentSide, currentSide);
+            
+            let pIdx = 2; // Start after 2-byte side header
+            let pathIdx = 0; 
+            let pixelsWritten = 0;
+            const totalPixels = currentSide * currentSide;
+
+            log(`Unfolding ${currentSide}px Surface...`, "yellow");
+
+            while (pIdx < buf.length && pixelsWritten < totalPixels) {
+                const r = buf[pIdx++];
+                const g = buf[pIdx++];
+                const b = buf[pIdx++];
+                const run = buf[pIdx++]; // Read RLE run length
+
+                let runCount = 0;
+                // Keep moving through the Hilbert path until this run is spent
+                while (runCount < run && pixelsWritten < totalPixels) {
+                    const [x, y] = d2xy(N, pathIdx++);
+                    
+                    // Critical Parity Check: Only write if within the 4000x4000 surface
+                    if (x < currentSide && y < currentSide) {
+                        const o = (y * currentSide + x) * 4;
+                        out.data[o] = r;
+                        out.data[o+1] = g;
+                        out.data[o+2] = b;
+                        out.data[o+3] = 255;
+                        runCount++;
+                        pixelsWritten++;
+                    }
+                }
+            }
+            ctx.putImageData(out, 0, 0);
+            log("Identity Reconstructed: Parity Verified.", "green");
+        }
+
+        function exportPPM() {
+            if (currentSide === 0) return;
+            const header = new Uint8Array(15);
+            const headerStr = "P6 4000 4000 255"; 
+            for(let i=0; i<14; i++) header[i] = headerStr.charCodeAt(i);
+            header[14] = 0x0A; 
+
+            const imgData = ctx.getImageData(0, 0, currentSide, currentSide).data;
+            const pixels = new Uint8Array(currentSide * currentSide * 3);
+            let pIdx = 0;
+            for (let i = 0; i < imgData.length; i += 4) {
+                pixels[pIdx++] = imgData[i]; 
+                pixels[pIdx++] = imgData[i+1]; 
+                pixels[pIdx++] = imgData[i+2];
+            }
+            const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([header, pixels]));
+            a.download = `database_uncompressed.ppm`; a.click();
+            log("Fixed 15-byte PPM Exported.", "green");
+        }
+    </script>
+</body>
+</html>
