@@ -1,5 +1,9 @@
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.io.IOException;
 
 public class ScyKernel {
     private String password;
@@ -22,10 +26,15 @@ public class ScyKernel {
     }
 
     // Deterministic FNV-1a Hash + Alphabet Salt for Cross-Language Parity
-    private int deriveIndex(String key) {
+    private int deriveIndex(String key, String password) {
         long hash = 0x811c9dc5L & 0xffffffffL; // FNV offset basis (uint32)
         long prime = 0x01000193L;              // FNV prime
         long alphaSalt = 0;
+
+        for (byte b : password.getBytes()) {
+            hash ^= (b & 0xFF); // Ensure unsigned byte treatment
+            hash = (hash * prime) & 0xFFFFFFFFL; // Mask to 32-bit
+        }
 
         String lowerKey = key.toLowerCase();
         for (int i = 0; i < key.length(); i++) {
@@ -40,7 +49,9 @@ public class ScyKernel {
             }
         }
         long finalHash = (hash + alphaSalt) & 0xFFFFFFFFL;
-        return (int) (((double) finalHash / 4294967296.0) * 16000000);
+        double normalized = ((double) finalHash / 4294967296.0) * 16000000.0;
+
+        return (int) Math.floor(normalized);
     }
 
     private int[] d2xy(int n, int d) {
@@ -67,8 +78,8 @@ public class ScyKernel {
         return new int[]{x, y};
     }
 
-    public void put(String key, String value) throws IOException {
-        int index = deriveIndex(key);
+    public void put(String key, String value, String password) throws IOException {
+        int index = deriveIndex(key, password);
         int curD = hVal + (index * 1600);
         int[] coords = d2xy(canvasSize, curD);
         int x = coords[0], y = coords[1];
@@ -92,8 +103,8 @@ public class ScyKernel {
         }
     }
 
-    public String get(String key) throws IOException {
-        int index = deriveIndex(key);
+    public String get(String key, String password) throws IOException {
+        int index = deriveIndex(key, password);
         int curD = hVal + (index * 1600);
         int[] coords = d2xy(canvasSize, curD);
         int x = coords[0], y = coords[1];
@@ -109,6 +120,19 @@ public class ScyKernel {
                 bos.write(r);
             }
             return bos.toString(StandardCharsets.UTF_8);
+        }
+    }
+
+    public boolean deleteDB(String dbPath) throws IOException {
+        Path path = Paths.get(dbPath);
+        try {
+            // Files.deleteIfExists returns true if the file was there and deleted,
+            // and false if the file didn't exist.
+            return Files.deleteIfExists(path);
+        } catch (IOException e) {
+            // Log the error or rethrow depending on your SDK's error policy
+            System.err.println("Failed to delete database: " + e.getMessage());
+            throw e; 
         }
     }
 }

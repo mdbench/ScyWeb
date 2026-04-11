@@ -32,7 +32,7 @@ function runTest() {
 
     // SOW: Put operation (Must use 1600 offset internally)
     try {
-        $scy->put($testKey, $testValue);
+        $scy->put($testKey, $testValue, $password);
     } catch (Exception $e) {
         echo "❌ PHP SDK Put Error: " . $e->getMessage() . "\n";
         exit(1);
@@ -40,19 +40,16 @@ function runTest() {
 
     // HARVEST: Get operation
     try {
-        $result = $scy->get($testKey);
-
-        // CLEANUP & VALIDATION
-        if (file_exists($dbPath)) {
-            unlink($dbPath);
-        }
+        $result = $scy->get($testKey, $password);
 
         if ($result === $testValue) {
             echo "✅ PHP KV Parity: SUCCESS (Recovered: $result)\n";
+            $scy->deleteDB($dbPath);
             exit(0);
         } else {
             echo "❌ PHP KV Parity: FAIL\n";
             echo "Expected: $testValue, Got: [$result]\n";
+            $scy->deleteDB($dbPath);
             exit(1);
         }
     } catch (Exception $e) {

@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"math"
 	"unicode"
 )
 
@@ -36,10 +37,17 @@ func (k *ScyKernel) getHVal(pwd string) int {
 }
 
 // Manual FNV-1a + Alphabet Salt for Cross-Language Parity
-func (k *ScyKernel) deriveIndex(key string) int {
+func (k *ScyKernel) deriveIndex(key string, password string) int {
 	var hash uint32 = 0x811c9dc5
 	var prime uint32 = 0x01000193
 	var alphaSalt int64 = 0
+
+	if password != "" {
+		for _, c := range password {
+			hash ^= uint32(c)
+			hash *= prime
+		}
+	}
 
 	for _, c := range key {
 		// FNV-1a
@@ -51,11 +59,10 @@ func (k *ScyKernel) deriveIndex(key string) int {
 		}
 	}
 	
-	result := int(int64(hash) + alphaSalt)
-	if result < 0 {
-		result = -result
-	}
-	return int((float64(uint32(result)) / 4294967296.0) * 16000000)
+	finalVal := uint32(int64(hash) + alphaSalt)
+	
+	normalized := (float64(finalVal) / 4294967296.0) * 16000000.0
+	return int(math.Floor(normalized))
 }
 
 func (k *ScyKernel) rot(n, x, y, rx, ry int) (int, int) {
@@ -83,8 +90,8 @@ func (k *ScyKernel) d2xy(n, d int) (int, int) {
 	return x, y
 }
 
-func (k *ScyKernel) Put(key, value string) error {
-	index := k.deriveIndex(key)
+func (k *ScyKernel) Put(key, value, password string) error {
+	index := k.deriveIndex(key, password)
 	curD := k.hVal + (index * 1600)
 	x, y := k.d2xy(k.canvasSize, curD)
 
@@ -114,8 +121,8 @@ func (k *ScyKernel) Put(key, value string) error {
 	return nil
 }
 
-func (k *ScyKernel) Get(key string) (string, error) {
-	index := k.deriveIndex(key)
+func (k *ScyKernel) Get(key, password string) (string, error) {
+	index := k.deriveIndex(key, password)
 	curD := k.hVal + (index * 1600)
 	x, y := k.d2xy(k.canvasSize, curD)
 
@@ -138,4 +145,8 @@ func (k *ScyKernel) Get(key string) (string, error) {
 		result.WriteByte(pixel[0])
 	}
 	return result.String(), nil
+}
+
+func (k *ScyKernel) DeleteDB(path string) error {
+    return os.Remove(path)
 }

@@ -29,29 +29,28 @@ func main() {
 	scy := NewScyKernel(password, dbPath)
 
 	// SOW: Put operation (uses 1600 offset)
-	if err := scy.Put(testKey, testValue); err != nil {
+	if err := scy.Put(testKey, testValue, password); err != nil {
 		fmt.Printf("❌ Put Error: %v\n", err)
 		os.Remove(dbPath)
 		os.Exit(1)
 	}
 
 	// HARVEST: Get operation (uses 1600 offset)
-	result, err := scy.Get(testKey)
+	result, err := scy.Get(testKey, password)
 	if err != nil {
 		fmt.Printf("❌ Get Error: %v\n", err)
 		os.Remove(dbPath)
 		os.Exit(1)
 	}
 
-	// Cleanup & Validation
-	os.Remove(dbPath)
-
 	if result == testValue {
 		fmt.Printf("✅ Go KV Parity: SUCCESS (Recovered: %s)\n", result)
+		scy.DeleteDB(dbPath)
 		os.Exit(0)
 	} else {
 		fmt.Printf("❌ Go KV Parity: FAIL\n")
 		fmt.Printf("Expected: %s, Got: [%s]\n", testValue, result)
+		scy.DeleteDB(dbPath)
 		os.Exit(1)
 	}
 }

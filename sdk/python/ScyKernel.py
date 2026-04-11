@@ -15,25 +15,23 @@ class ScyKernel:
             hash_val = (hash_val * 31 + ord(char)) & 0xFFFFFFFF
         return int((hash_val / 4294967296.0) * 16000000)
 
-    def _derive_index(self, key):
-        # FNV-1a constants
-        fnv_offset_basis = 0x811c9dc5
-        fnv_prime = 0x01000193
-        hash_val = fnv_offset_basis
+    def _derive_index(self, key: str, password: str) -> int:
+        # FNV-1a constants for 32-bit
+        hash_val = 0x811c9dc5
+        prime = 0x01000193
         alpha_salt = 0
-        
-        lower_key = key.lower()
-        for i, char in enumerate(key):
-            # FNV-1a Math (32-bit unsigned)
-            hash_val ^= ord(char)
-            hash_val = (hash_val * fnv_prime) & 0xFFFFFFFF
-            
-            # Alphabet Salt (a=1, b=2...)
-            if lower_key[i].isalpha():
-                alpha_salt += (ord(lower_key[i]) - ord('a') + 1)
-        
-        final_val = (hash_val + alpha_salt) & 0xFFFFFFFF
-        return int((final_val / 4294967296.0) * 16000000)
+        for b in password.encode('utf-8'):
+            hash_val ^= b
+            hash_val = (hash_val * prime) % 0x100000000  # Mask to 32-bit
+        for b in key.encode('utf-8'):
+            hash_val ^= b
+            hash_val = (hash_val * prime) % 0x100000000
+            char = chr(b)
+            if char.isalpha():
+                alpha_salt += (ord(char.lower()) - ord('a') + 1)
+        final_val = (hash_val + alpha_salt) % 0x100000000
+        normalized = (final_val / 4294967296.0) * 16000000.0
+        return math.floor(normalized)
 
     def _rot(self, n, x, y, rx, ry):
         if ry == 0:
@@ -57,8 +55,8 @@ class ScyKernel:
             s *= 2
         return x, y
 
-    def put(self, key, value):
-        index = self._derive_index(key)
+    def put(self, key, value, password):
+        index = self._derive_index(key, password)
         cur_d = self.h_val + (index * 1600)
         x, y = self._d2xy(self.canvas_size, cur_d)
         
@@ -81,8 +79,8 @@ class ScyKernel:
             mm[term_pos:term_pos+3] = b'\x00\x00\x00'
             mm.close()
 
-    def get(self, key):
-        index = self._derive_index(key)
+    def get(self, key, password):
+        index = self._derive_index(key, password)
         cur_d = self.h_val + (index * 1600)
         x, y = self._d2xy(self.canvas_size, cur_d)
         
@@ -102,3 +100,13 @@ class ScyKernel:
             
             mm.close()
         return result.decode('utf-8')
+    
+    def delete_db(self, db_path: str) -> bool:
+        """Removes the database file if it exists."""
+        try:
+            if os.path.exists(db_path):
+                os.remove(db_path)
+                return True
+            return False
+        except OSError:
+            return False

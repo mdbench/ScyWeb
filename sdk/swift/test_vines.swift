@@ -29,30 +29,26 @@ struct ParityTest {
             if !success { exit(1) }
         }
 
-        let kernel = ScyKernel(password: password, filePath: imagePath)
+        let scy = ScyKernel(password: password, filePath: imagePath)
 
         do {
             //print("Swift: Putting key '\(testKey)'...")
-            try kernel.put(key: testKey, value: testValue)
+            try scy.put(key: testKey, value: testValue, password: password)
 
             //print("Swift: Getting key '\(testKey)'...")
-            let result = try kernel.get(key: testKey)
-
-            if fm.fileExists(atPath: imagePath) {
-                //print("Cleaning up...")
-                try fm.removeItem(atPath: imagePath)
-            }
+            let result = try scy.get(key: testKey, password: password)
 
             if result == testValue {
                 print("✅ Swift KV Parity: SUCCESS (Recovered: \(result))")
+                _ = try? scy.deleteDB(path: imagePath)
                 exit(0)
             } else {
                 print("❌ Swift KV Parity: FAIL. Got: [\(result)]")
+                _ = try? scy.deleteDB(path: imagePath)
                 exit(1)
             }
         } catch {
             print("❌ Error: \(error)")
-            try? fm.removeItem(atPath: imagePath)
             exit(1)
         }
     }

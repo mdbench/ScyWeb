@@ -20,26 +20,35 @@ class ScyKernel {
     }
 
     // Deterministic FNV-1a + Alphabet Salt for Cross-Language Parity
-    _deriveIndex(key) {
-        let hash = 0x811c9dc5 >>> 0;
+    _deriveIndex(key, password) {
+        let hash = 0x811c9dc5 | 0; // Force signed 32-bit
         const prime = 0x01000193;
         let alphaSalt = 0;
-        const lowerKey = key.toLowerCase();
-
-        for (let i = 0; i < key.length; i++) {
-            const charCode = key.charCodeAt(i);
-            // FNV-1a XOR then Multiply (32-bit unsigned)
-            hash ^= charCode;
-            hash = Math.imul(hash, prime) >>> 0;
-
-            // Alphabet Salt (a=1, b=2...)
-            if (/[a-z]/.test(lowerKey[i])) {
-                alphaSalt += (lowerKey.charCodeAt(i) - 97 + 1);
-            }
+    
+        const encoder = new TextEncoder();
+    
+        const passBytes = encoder.encode(password);
+        for (let b of passBytes) {
+          hash ^= b;
+          hash = Math.imul(hash, prime);
         }
-        // Ensure unsigned 32-bit result before salt and modulo
-        const finalVal = (hash + alphaSalt) >>> 0;
-        return Math.floor((finalVal / 4294967296.0) * 16000000);
+    
+        const keyBytes = encoder.encode(key);
+        for (let b of keyBytes) {
+          hash ^= b;
+          hash = Math.imul(hash, prime);
+    
+          const char = String.fromCharCode(b);
+          if (/[a-zA-Z]/.test(char)) {
+            alphaSalt += (char.toLowerCase().charCodeAt(0) - 'a'.charCodeAt(0) + 1);
+          }
+        }
+    
+        const unsignedHash = hash >>> 0;
+        const finalVal = (unsignedHash + alphaSalt) >>> 0;
+        
+        const normalized = (finalVal / 4294967296.0) * 16000000.0;
+        return Math.floor(normalized);
     }
 
     _rot(n, x, y, rx, ry) {
@@ -66,8 +75,8 @@ class ScyKernel {
         return [x, y];
     }
 
-    async put(key, value) {
-        const index = this._deriveIndex(key);
+    async put(key, value, password) {
+        const index = this._deriveIndex(key, password);
         const curD = this.hVal + (index * 1600);
         const [x, y] = this._d2xy(this.canvasSize, curD);
 
@@ -92,8 +101,8 @@ class ScyKernel {
         await RNFS.write(this.filePath, term.toString('base64'), offset + (data.length * 3), 'base64');
     }
 
-    async get(key) {
-        const index = this._deriveIndex(key);
+    async get(key, password) {
+        const index = this._deriveIndex(key, password);
         const curD = this.hVal + (index * 1600);
         const [x, y] = this._d2xy(this.canvasSize, curD);
 
@@ -113,6 +122,22 @@ class ScyKernel {
 
         return Buffer.from(resultBytes).toString('utf8');
     }
+
+    async deleteDB(path) {
+        try {
+            const fullPath = path.startsWith('/') ? path : `${RNFS.DocumentDirectoryPath}/${path}`;            
+            const exists = await RNFS.exists(fullPath);
+            if (exists) {
+            await RNFS.unlink(fullPath);
+            return true;
+            }
+            return false;
+        } catch (error) {
+            console.error("ScyWeb Cleanup Error:", error);
+            return false;
+        }
+    }
+
 }
 
 export default ScyKernel;

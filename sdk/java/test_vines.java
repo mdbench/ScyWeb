@@ -30,27 +30,27 @@ public class test_vines {
             ScyKernel scy = new ScyKernel(password, dbPath);
 
             // SOW: Put operation (Must use 1600 offset internally)
-            scy.put(testKey, testValue);
+            scy.put(testKey, testValue, password);
 
             // HARVEST: Get operation
-            String result = scy.get(testKey);
-
-            // CLEANUP & VALIDATION
-            if (file.exists()) {
-                file.delete();
-            }
+            String result = scy.get(testKey, password);
 
             if (testValue.equals(result)) {
                 System.out.printf("✅ Java KV Parity: SUCCESS (Recovered: %s)%n", result);
+                System.out.close();
+                scy.deleteDB(dbPath);
                 System.exit(0);
             } else {
                 System.out.println("❌ Java KV Parity: FAIL");
                 System.out.printf("Expected: %s, Got: [%s]%n", testValue, result);
+                System.out.close();
+                scy.deleteDB(dbPath);
                 System.exit(1);
             }
 
         } catch (Exception e) {
             System.err.println("❌ Java SDK Error: " + e.getMessage());
+            System.out.close();
             e.printStackTrace();
             System.exit(1);
         }

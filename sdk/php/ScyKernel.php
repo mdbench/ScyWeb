@@ -24,27 +24,32 @@ class ScyKernel {
     }
 
     // Deterministic FNV-1a + Alphabet Salt for Cross-Language Parity
-    private function deriveIndex($key) {
+    private function deriveIndex(string $key, string $password): int {
         $hash = 0x811c9dc5;
         $prime = 0x01000193;
         $alphaSalt = 0;
 
-        $lowerKey = strtolower($key);
-        for ($i = 0; $i < strlen($key); $i++) {
-            // FNV-1a Math: XOR then Multiply (constrained to 32-bit)
-            $hash ^= ord($key[$i]);
-            // Multiply and immediately mask to 32-bits
+        $passBytes = unpack('C*', $password);
+        foreach ($passBytes as $b) {
+            $hash ^= $b;
+            $hash = ($hash * $prime) & 0xFFFFFFFF;
+        }
+
+        $keyBytes = unpack('C*', $key);
+        foreach ($keyBytes as $b) {
+            $hash ^= $b;
             $hash = ($hash * $prime) & 0xFFFFFFFF;
 
-            // Alphabet Salt (a=1, b=2...)
-            if (ctype_alpha($key[$i])) {
-                $alphaSalt += (ord($lowerKey[$i]) - ord('a') + 1);
+            $char = chr($b);
+            if (ctype_alpha($char)) {
+                $alphaSalt += (ord(strtolower($char)) - ord('a') + 1);
             }
         }
-        
-        // Combine, cast to unsigned float, and project
-        $finalVal = (float)sprintf('%u', ($hash + $alphaSalt) & 0xFFFFFFFF);
-        return (int)floor(($finalVal / 4294967296.0) * 16000000);
+
+        $finalVal = ($hash + $alphaSalt) & 0xFFFFFFFF;
+        $normalized = ($finalVal / 4294967296.0) * 16000000.0;
+
+        return (int)floor($normalized);
     }
 
     private function rot($n, $x, $y, $rx, $ry) {
@@ -71,8 +76,8 @@ class ScyKernel {
         return [$x, $y];
     }
 
-    public function put($key, $value) {
-        $index = $this->deriveIndex($key);
+    public function put($key, $value, $password) {
+        $index = $this->deriveIndex($key, $password);
         $curD = $this->hVal + ($index * 1600);
         [$x, $y] = $this->d2xy($this->canvasSize, $curD);
 
@@ -97,8 +102,8 @@ class ScyKernel {
         fclose($fp);
     }
 
-    public function get($key) {
-        $index = $this->deriveIndex($key);
+    public function get($key, $password) {
+        $index = $this->deriveIndex($key, $password);
         $curD = $this->hVal + ($index * 1600);
         [$x, $y] = $this->d2xy($this->canvasSize, $curD);
 
@@ -116,4 +121,12 @@ class ScyKernel {
         fclose($fp);
         return $result;
     }
+
+    public function deleteDB(string $dbPath): bool {
+        if (file_exists($dbPath)) {
+            return unlink($dbPath);
+        }
+        return false;
+    }
+    
 }

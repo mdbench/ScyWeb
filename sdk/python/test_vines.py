@@ -30,7 +30,7 @@ def run_test():
 
     # SOW: Put operation (Must use 1600 offset internally)
     try:
-        scy.put(test_key, test_value)
+        scy.put(test_key, test_value, password)
     except Exception as e:
         print(f"❌ Python SDK Put Error: {e}")
         if os.path.exists(db_path):
@@ -39,18 +39,16 @@ def run_test():
 
     # HARVEST: Get operation
     try:
-        result = scy.get(test_key)
-
-        # CLEANUP & VALIDATION
-        if os.path.exists(db_path):
-            os.remove(db_path)
+        result = scy.get(test_key, password)
 
         if result == test_value:
             print(f"✅ Python KV Parity: SUCCESS (Recovered: {result})")
+            scy.delete_db(db_path)
             sys.exit(0)
         else:
             print("❌ Python KV Parity: FAIL")
             print(f"Expected: {test_value}, Got: [{result}]")
+            scy.delete_db(db_path)
             sys.exit(1)
     except Exception as e:
         print(f"❌ Python SDK Get Error: {e}")

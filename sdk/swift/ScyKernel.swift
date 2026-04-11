@@ -20,11 +20,16 @@ public class ScyKernel {
         return Int((Double(hash) / 4294967296.0) * 16000000.0)
     }
 
-    private func deriveIndex(key: String) -> Int64 {
+    private func deriveIndex(key: String, password: String) -> Int64 {
         var hash: UInt32 = 0x811c9dc5
         let prime: UInt32 = 0x01000193
         var alphaSalt: Int64 = 0
         let aValue = Int64(Unicode.Scalar("a").value)
+
+        for b in password.utf8 {
+            hash ^= UInt32(b)
+            hash = hash &* prime
+        }
 
         for scalar in key.lowercased().unicodeScalars {
             hash ^= UInt32(scalar.value)
@@ -58,8 +63,8 @@ public class ScyKernel {
         return (x, y)
     }
 
-    public func put(key: String, value: String) throws {
-        let index = deriveIndex(key: key)
+    public func put(key: String, value: String, password: String) throws {
+        let index = deriveIndex(key: key, password: password)
         let (x, y) = d2xy(n: canvasSize, d: hVal + (index * 1600))
         let handle = try FileHandle(forUpdating: URL(fileURLWithPath: filePath))
         defer { try? handle.close() }
@@ -81,8 +86,8 @@ public class ScyKernel {
         try handle.write(contentsOf: Data([0, 0, 0]))
     }
 
-    public func get(key: String) throws -> String {
-        let index = deriveIndex(key: key)
+    public func get(key: String, password: String) throws -> String {
+        let index = deriveIndex(key: key, password: password)
         let (x, y) = d2xy(n: canvasSize, d: hVal + (index * 1600))
         let handle = try FileHandle(forReadingFrom: URL(fileURLWithPath: filePath))
         defer { try? handle.close() }
@@ -97,4 +102,14 @@ public class ScyKernel {
         }
         return String(data: res, encoding: .utf8) ?? ""
     }
+
+    public func deleteDB(path: String) throws -> Bool {
+        let fm = FileManager.default
+        if fm.fileExists(atPath: path) {
+            try fm.removeItem(atPath: path)
+            return true
+        }
+        return false
+    }
+    
 }

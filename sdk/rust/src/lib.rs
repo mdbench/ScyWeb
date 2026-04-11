@@ -1,11 +1,11 @@
-use std::fs::OpenOptions;
+use std::fs::{self, OpenOptions};
 use std::io::{Read, Write, Seek, SeekFrom};
 
 #[allow(dead_code)]
 pub struct ScyKernel {
     password: String,
     file_path: String,
-    h_val: i64,      // Changed to i64 to prevent overflow
+    h_val: i64,
     canvas_size: i32,
 }
 
@@ -24,30 +24,32 @@ impl ScyKernel {
     fn get_h_val(&self, pwd: &str) -> i32 {
         let mut hash: i32 = 7;
         for c in pwd.chars() {
-            // Use wrapping_mul/add to handle the hash intentionally
             hash = hash.wrapping_mul(31).wrapping_add(c as i32);
         }
         (((hash as u32) as f64 / 4294967296.0) * 16000000.0) as i32
     }
 
-    fn derive_index(&self, key: &str) -> i64 {
+    fn derive_index(&self, key: &str, password: &str) -> u64 {
         let mut hash: u32 = 0x811c9dc5;
         let prime: u32 = 0x01000193;
-        let mut alpha_salt: i64 = 0;
+        let mut alpha_salt: u32 = 0;
 
-        let lower_key = key.to_lowercase();
-        for (i, c) in key.chars().enumerate() {
-            hash ^= c as u32;
+        for b in password.as_bytes() {
+            hash ^= *b as u32;
             hash = hash.wrapping_mul(prime);
+        }
 
-            if c.is_alphabetic() {
-                let salt_val = (lower_key.chars().nth(i).unwrap() as i64) - ('a' as i64) + 1;
-                alpha_salt += salt_val;
+        for b in key.as_bytes() {
+            hash ^= *b as u32;
+            hash = hash.wrapping_mul(prime);
+            let c = *b as char;
+            if c.is_ascii_alphabetic() {
+                alpha_salt += c.to_ascii_lowercase() as u32 - 97 + 1;
             }
         }
-        
-        let combined = (hash as i64 + alpha_salt) as u32;
-        ((combined as f64 / 4294967296.0) * 16000000.0) as i64
+
+        let final_val = hash.wrapping_add(alpha_salt) as u64;
+        ((final_val as f64 / 4294967296.0) * 16000000.0) as u64
     }
 
     fn rot(&self, n: i32, mut x: i32, mut y: i32, rx: i32, ry: i32) -> (i32, i32) {
@@ -77,15 +79,13 @@ impl ScyKernel {
         (x, y)
     }
 
-    pub fn put(&self, key: &str, value: &str) -> std::io::Result<()> {
-        let index = self.derive_index(key);
-        // cast everything to i64 before multiplication
-        let cur_d = self.h_val + (index * 1600);
+    pub fn put(&self, key: &str, value: &str, password: &str) -> std::io::Result<()> {
+        let index = self.derive_index(key, password);
+        let cur_d = self.h_val + (index * 1600) as i64;
         let (x, y) = self.d2xy(self.canvas_size, cur_d);
 
         let mut file = OpenOptions::new().read(true).write(true).open(&self.file_path)?;
         
-        // Calculate offset using u64 to handle 48MB file pointer
         let offset = 15 + (y as u64 * self.canvas_size as u64 + x as u64) * 3;
         let bytes = value.as_bytes();
 
@@ -94,26 +94,23 @@ impl ScyKernel {
             file.seek(SeekFrom::Start(pos))?;
             let mut pixel = [0u8; 3];
             
-            // If we (for the person reading this code) can't read the full pixel, it's an EOF or file error
             file.read_exact(&mut pixel)?;
             
-            // XOR Obfuscation (Channel 0)
             pixel[0] ^= byte;
             
             file.seek(SeekFrom::Start(pos))?;
             file.write_all(&pixel)?;
         }
 
-        // Write Null Terminator to Channel 0 of the next pixel
         let term_pos = offset + (bytes.len() as u64 * 3);
         file.seek(SeekFrom::Start(term_pos))?;
         file.write_all(&[0, 0, 0])?;
         Ok(())
     }
 
-    pub fn get(&self, key: &str) -> std::io::Result<String> {
-        let index = self.derive_index(key);
-        let cur_d = self.h_val + (index * 1600);
+    pub fn get(&self, key: &str, password: &str) -> std::io::Result<String> {
+        let index = self.derive_index(key, password);
+        let cur_d = self.h_val + (index * 1600) as i64;
         let (x, y) = self.d2xy(self.canvas_size, cur_d);
 
         let mut file = OpenOptions::new().read(true).open(&self.file_path)?;
@@ -135,4 +132,15 @@ impl ScyKernel {
 
         Ok(String::from_utf8_lossy(&result).into_owned())
     }
+
+    pub fn delete_db(&self, path: &str) -> std::io::Result<bool> {
+        let path_obj = std::path::Path::new(path);
+        if path_obj.exists() {
+            fs::remove_file(path_obj)?;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
 }

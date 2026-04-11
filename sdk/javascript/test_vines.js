@@ -31,7 +31,7 @@ async function runTest() {
 
     // SOW: Put the data (Uses 1600 offset internally)
     try {
-        await scy.put(testKey, testValue);
+        await scy.put(testKey, testValue, password);
     } catch (err) {
         console.error(`❌ JS SDK Put Error: ${err.message}`);
         process.exit(1);
@@ -39,19 +39,15 @@ async function runTest() {
 
     // HARVEST: Get the data
     try {
-        const result = await scy.get(testKey);
-
-        // CLEANUP & VALIDATION
-        if (fs.existsSync(dbPath)) {
-            fs.unlinkSync(dbPath);
-        }
-
+        const result = await scy.get(testKey, password);
         if (result === testValue) {
             console.log(`✅ JS KV Parity: SUCCESS (Recovered: ${result})`);
+            scy.deleteDB(dbPath);
             process.exit(0);
         } else {
             console.log(`❌ JS KV Parity: FAIL`);
             console.log(`Expected: ${testValue}, Got: [${result}]`);
+            scy.deleteDB(dbPath);
             process.exit(1);
         }
     } catch (err) {

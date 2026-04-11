@@ -28,21 +28,18 @@ fn main() {
     let scy = ScyKernel::new(password, &db_path);
 
     // 3. SOW: Put operation
-    scy.put(test_key, test_value).expect("❌ Rust SDK Put Error");
+    scy.put(test_key, test_value, password).expect("❌ Rust SDK Put Error");
 
     // 4. HARVEST: Get operation
-    let result = scy.get(test_key).expect("❌ Rust SDK Get Error");
-
-    // 5. CLEANUP & VALIDATION
-    if Path::new(&db_path).exists() {
-        fs::remove_file(&db_path).expect("❌ Cleanup failed");
-    }
+    let result = scy.get(test_key, password).expect("❌ Rust SDK Get Error");
 
     if result == test_value {
         println!("✅ Rust KV Parity: SUCCESS (Recovered: {})", result);
+        let _ = scy.delete_db(&db_path);
         std::process::exit(0);
     } else {
         println!("❌ Rust KV Parity: FAIL. Expected {}, Got [{}]", test_value, result);
+        let _ = scy.delete_db(&db_path);
         std::process::exit(1);
     }
 }

@@ -2,6 +2,8 @@ import java.io.RandomAccessFile
 import java.io.File
 import kotlin.math.*
 import java.util.Locale
+import java.nio.file.Files
+import java.nio.file.Paths
 
 class ScyKernel(private val password: String, private val filePath: String) {
     private val canvasSize: Int = 4000
@@ -12,34 +14,42 @@ class ScyKernel(private val password: String, private val filePath: String) {
     }
 
     private fun getHVal(pwd: String): Int {
-        var hash: UInt = 7u
-        for (char in pwd) {
-            // Fix: Use .toInt() instead of .code
-            hash = hash * 31u + char.toInt().toUInt()
+        var hash = 0x811c9dc5L
+        val prime = 0x01000193L
+       
+        pwd.toByteArray(Charsets.UTF_8).forEach { b ->
+            hash = hash xor (b.toLong() and 0xFFL)
+            hash = (hash * prime) and 0xFFFFFFFFL
         }
-        return ((hash.toDouble() / 4294967296.0) * 16000000.0).toInt()
+        
+        val normalized = (hash.toDouble() / 4294967296.0) * 16000000.0
+        return kotlin.math.floor(normalized).toInt()
     }
 
-    private fun deriveIndex(key: String): Long {
-        var hash: UInt = 0x811c9dc5u
-        val prime: UInt = 0x01000193u
-        var alphaSalt: Long = 0
-        
-        val lowerKey = key.lowercase(Locale.getDefault())
-        val aInt = 'a'.toInt()
+    private fun deriveIndex(key: String, password: String): Int {
+        var hash = 0x811c9dc5L
+        val prime = 0x01000193L
+        var alphaSalt = 0L
 
-        for (i in key.indices) {
-            val char = key[i]
-            hash = hash xor char.toInt().toUInt()
-            hash *= prime
+        password.toByteArray().forEach { b ->
+            hash = hash xor (b.toLong() and 0xFFL)
+            hash = (hash * prime) and 0xFFFFFFFFL
+        }
 
-            if (char.isLetter()) {
-                // Fix: Use .toInt() instead of .code
-                alphaSalt += (lowerKey[i].toInt() - aInt + 1).toLong()
+        key.toByteArray().forEach { b ->
+            hash = hash xor (b.toLong() and 0xFFL)
+            hash = (hash * prime) and 0xFFFFFFFFL
+
+            val c = b.toInt().toChar()
+            if (c.isLetter()) {
+                alphaSalt += (c.lowercaseChar() - 'a' + 1).toLong()
             }
         }
-        val finalVal = (hash.toLong() + alphaSalt).toUInt()
-        return ((finalVal.toDouble() / 4294967296.0) * 16000000.0).toLong()
+
+        val finalVal = (hash + alphaSalt) and 0xFFFFFFFFL
+        val normalized = (finalVal.toDouble() / 4294967296.0) * 16000000.0
+        
+        return floor(normalized).toInt()
     }
 
     private fun rot(n: Int, x: Int, y: Int, rx: Int, ry: Int): Pair<Int, Int> {
@@ -72,8 +82,8 @@ class ScyKernel(private val password: String, private val filePath: String) {
         return Pair(x, y)
     }
 
-    fun put(key: String, value: String) {
-        val index = deriveIndex(key)
+    fun put(key: String, value: String, password: String) {
+        val index = deriveIndex(key, password)
         val curD = hVal + (index * 1600)
         val (x, y) = d2xy(canvasSize, curD)
 
@@ -99,8 +109,8 @@ class ScyKernel(private val password: String, private val filePath: String) {
         }
     }
 
-    fun get(key: String): String {
-        val index = deriveIndex(key)
+    fun get(key: String, password: String): String {
+        val index = deriveIndex(key, password)
         val curD = hVal + (index * 1600)
         val (x, y) = d2xy(canvasSize, curD)
 
@@ -117,5 +127,9 @@ class ScyKernel(private val password: String, private val filePath: String) {
             }
             return String(result.toByteArray(), Charsets.UTF_8)
         }
+    }
+
+    fun deleteDB(dbPath: String): Boolean {
+        return Files.deleteIfExists(Paths.get(dbPath))
     }
 }

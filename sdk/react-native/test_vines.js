@@ -26,19 +26,16 @@ async function runSimulation() {
         const scy = new ScyKernel(password, dbPath);
 
         // Execute Operations
-        await scy.put(testKey, testValue);
-        const result = await scy.get(testKey);
-
-        // Cleanup
-        if (fs.existsSync(dbPath)) {
-            fs.unlinkSync(dbPath);
-        }
+        await scy.put(testKey, testValue, password);
+        const result = await scy.get(testKey, password);
 
         if (result === testValue) {
             console.log(`✅ RN KV Parity: SUCCESS (Recovered: ${result})`);
+            await scy.deleteDB(dbPath);
             process.exit(0);
         } else {
             console.log(`❌ RN KV Parity: FAIL (Expected: ${testValue}, Got: [${result}])`);
+            await scy.deleteDB(dbPath);
             process.exit(1);
         }
 

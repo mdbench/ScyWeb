@@ -29,22 +29,19 @@ fun main() {
         val scy = ScyKernel(password, dbPath)
 
         // SOW: Put operation (Must use 1600 offset internally)
-        scy.put(testKey, testValue)
+        scy.put(testKey, testValue, password)
 
         // HARVEST: Get operation
-        val result = scy.get(testKey)
-
-        // CLEANUP & VALIDATION
-        if (file.exists()) {
-            file.delete()
-        }
+        val result = scy.get(testKey, password)
 
         if (testValue == result) {
             println("✅ Kotlin KV Parity: SUCCESS (Recovered: $result)")
+            scy.deleteDB(dbPath)
             exitProcess(0)
         } else {
             println("❌ Kotlin KV Parity: FAIL")
             println("Expected: $testValue, Got: [$result]")
+            scy.deleteDB(dbPath)
             exitProcess(1)
         }
 

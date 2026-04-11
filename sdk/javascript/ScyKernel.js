@@ -19,11 +19,19 @@ class ScyKernel {
         return Math.floor((unsignedHash / 4294967296.0) * 16000000);
     }
 
-    // Deterministic FNV-1a + Alphabet Salt for Parity
-    _deriveIndex(key) {
+    // Deterministic FNV-1a + Alphabet Salt for Parity with option
+    // to support password protected databasing
+    _deriveIndex(key, password) {
         let hash = 0x811c9dc5 >>> 0;
         const prime = 0x01000193;
         let alphaSalt = 0;
+
+        if (password) {
+            for (let j = 0; j < password.length; j++) {
+                hash ^= password.charCodeAt(j);
+                hash = Math.imul(hash, prime) >>> 0;
+            }
+        }
 
         const lowerKey = key.toLowerCase();
         for (let i = 0; i < key.length; i++) {
@@ -68,8 +76,8 @@ class ScyKernel {
         return [x, y];
     }
 
-    put(key, value) {
-        const index = this._deriveIndex(key);
+    put(key, value, password) {
+        const index = this._deriveIndex(key, password);
         const curD = this.hVal + (index * 1600);
         const [x, y] = this._d2xy(this.canvasSize, curD);
 
@@ -92,8 +100,8 @@ class ScyKernel {
         fs.closeSync(fd);
     }
 
-    get(key) {
-        const index = this._deriveIndex(key);
+    get(key, password) {
+        const index = this._deriveIndex(key, password);
         const curD = this.hVal + (index * 1600);
         const [x, y] = this._d2xy(this.canvasSize, curD);
 
@@ -113,6 +121,17 @@ class ScyKernel {
         fs.closeSync(fd);
         return Buffer.from(resultBytes).toString('utf8');
     }
+
+    deleteDB(dbPath) {
+        try {
+            fs.unlinkSync(dbPath); // Synchronous, no callback needed
+            return true;
+        } catch (error) {
+            if (error.code === 'ENOENT') return false;
+            throw error;
+        }
+    }
+
 }
 
 module.exports = ScyKernel;
