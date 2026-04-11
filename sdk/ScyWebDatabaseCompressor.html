@@ -81,6 +81,10 @@
         }
 
         .canvas-area {
+            width: 400px;
+            height: 400px;
+            margin: auto;
+            border: 1px solid #fff;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -113,6 +117,7 @@
                 <h2>1. Surface Load</h2>
                 <input type="file" id="sourceInput">
                 <button onclick="importSource()">Map to Space</button>
+                <button onclick="exportSource()">Export Space</button>
             </div>
             <div class="control-zone">
                 <h2>2. Fractal Transcode</h2>
@@ -185,6 +190,16 @@
                 };
                 img.src = URL.createObjectURL(file);
             }
+        }
+
+        function exportSource(){
+            const canvasUrl = canvas.toDataURL("image/png");
+            const link = document.createElement('a');
+            link.href = canvasUrl;
+            link.download = "scyweb_img_db.png";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
 
         function d2xy(n, d) {
