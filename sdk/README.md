@@ -130,12 +130,12 @@ This demo serves as a **High-Correlation Stress Test** for the ScyWeb cryptograp
     - Take [scy_demo_database.ppm](https://raw.githubusercontent.com/mdbench/ScyWeb/refs/heads/main/sdk/scy_demo_database.ppm), map it to space, and convert it to a .scy file to see the database get compressed from 45.8MBs to 2.8MBs, making it 150% smaller.
     - Take [scy_demo_database.ppm](https://raw.githubusercontent.com/mdbench/ScyWeb/refs/heads/main/sdk/scy_demo_database.ppm), map it to space, and export it to a png image file to see the database get compressed from 45.8MBs to 714KBs, making it 6,353.5% smaller.
     - Take [scy_demo_database.png](https://raw.githubusercontent.com/mdbench/ScyWeb/refs/heads/main/sdk/scy_demo_database.png) and map it to space, convert it to .scy, and convert it back to a .ppm file to see no data was lost.
-    - You can also use this demo to convert the .scy file back to a PPM database file, seeing the compressor proof of concept works!
+    - A lossless strictly image version called [scy_demo_database_lossless_compressed.png](https://raw.githubusercontent.com/mdbench/ScyWeb/refs/heads/main/sdk/scy_demo_database_lossless_compressed.png) shows a file size of 95KBs, making it 750% smaller than its predecessor with no data loss.
 
 ### scy_demo_database.png
 <img src="https://raw.githubusercontent.com/mdbench/ScyWeb/refs/heads/main/sdk/scy_demo_database.png" width="400" height="400">
 
-> **What this means:** An image database is the best method to store data for modular architectures (which should be all companies at this point except big data companies). A detailed synopsis will be provided later. This README.md was just created to document my process.
+> **What this means:** An image database is the best method to store data for modular architectures (which should be all companies at this point except big data companies). Normal database compression cannot compete. Vines image database does not have to be uncompressed to be used but using a .scy provides quantum-proofness to each compression. A detailed synopsis will be provided later. This README.md was just created to document my process.
 
 ### 📦 Demo Database (PPM)
 To run the diagnostic, download the pre-sowed 16-million pixel database:
