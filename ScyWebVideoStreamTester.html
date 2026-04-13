@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>ScyWeb Image2Streamer</title>
+    <style>
+        :root { --bg: #050508; --panel: #0d0d12; --accent: #9d4edd; --text: #c19ee0; --bar-bg: #1a1a2e; }
+        body { background: var(--bg); color: var(--text); font-family: 'Courier New', monospace; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .header { width: 100%; border-bottom: 1px solid var(--accent); margin-bottom: 20px; display: flex; justify-content: space-between; padding-bottom: 10px; max-width: 1300px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 1300px; width: 100%; }
+        .panel { border: 1px solid var(--accent); padding: 20px; background: var(--panel); border-radius: 4px; position: relative; }
+        canvas { border: 1px solid #333; background: #000; display: block; image-rendering: pixelated; width: 100%; height: auto; }
+        .canvas-wrap { position: relative; width: 100%; overflow: hidden; }
+        #marker { 
+            position: absolute; width: 12px; height: 12px; background: #ff0044; border-radius: 50%; 
+            box-shadow: 0 0 15px #ff0044, 0 0 5px #fff; pointer-events: none; transform: translate(-50%, -50%); 
+            display: none; z-index: 99; border: 2px solid #fff; transition: left 0.1s linear, top 0.1s linear; 
+        }
+        .controls { margin-top: 20px; width: 100%; max-width: 500px; border: 1px solid var(--accent); padding: 20px; background: var(--panel); }
+        .progress-container { width: 100%; background: var(--bar-bg); height: 12px; margin-top: 15px; border-radius: 6px; overflow: hidden; border: 1px solid #333; position: relative; }
+        #progressBar { width: 0%; height: 100%; background: var(--accent); transition: width 0.2s; box-shadow: 0 0 10px var(--accent); }
+        #progressText { position: absolute; width: 100%; text-align: center; font-size: 9px; line-height: 12px; color: #fff; font-weight: bold; }
+        button { background: var(--accent); color: #fff; border: none; padding: 12px; cursor: pointer; width: 100%; font-weight: bold; text-transform: uppercase; margin-top: 10px; }
+        button:disabled { opacity: 0.3; }
+        #status { font-size: 11px; color: #fff; background: #000; padding: 8px; margin-top: 10px; border-left: 2px solid var(--accent); min-height: 14px; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Image2Streamer</h1>
+        <div>Pixel Streaming: <span style="color:#fff">v1.0.0</span></div>
+    </div>
+
+    <div class="grid">
+        <div class="panel">
+            <h3>[DB] SOURCE</h3>
+            <div class="canvas-wrap">
+                <canvas id="dbPreview" width="4000" height="4000"></canvas>
+                <div id="marker"></div>
+            </div>
+        </div>
+        <div class="panel">
+            <h3>[OUT] UNRAVEL</h3>
+            <canvas id="displayCanvas"></canvas>
+            <div class="controls">
+                <input type="file" id="dbIn" accept="image/png">
+                <div style="margin-top:15px">
+                    <label style="font-size:11px">SPEED_BOOST: <span id="speedVal">1</span>x</label>
+                    <input type="range" id="speedSlider" min="1" max="20" value="1" style="width:100%">
+                </div>
+                
+                <div class="progress-container">
+                    <div id="progressText">0%</div>
+                    <div id="progressBar"></div>
+                </div>
+
+                <button id="playBtn" disabled>STREAM PIXELS</button>
+                <div id="status">> SYSTEM_READY</div>
+            </div>
+        </div>
+    </div>
+
+    <canvas id="storage" width="4000" height="4000" style="display:none;"></canvas>
+
+    <script>
+        const storage = document.getElementById('storage');
+        const sCtx = storage.getContext('2d');
+        const dbPreview = document.getElementById('dbPreview');
+        const pCtx = dbPreview.getContext('2d');
+        const displayCanvas = document.getElementById('displayCanvas');
+        const dCtx = displayCanvas.getContext('2d');
+        const marker = document.getElementById('marker');
+        const status = document.getElementById('status');
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        const speedSlider = document.getElementById('speedSlider');
+
+        let N = 256, vW = 256, vH = 256, FPS = 24, isPlaying = false, imgData = null;
+
+        function rot(n, x, y, rx, ry) {
+            if (ry === 0) {
+                if (rx === 1) { x = n - 1 - x; y = n - 1 - y; }
+                return [y, x];
+            }
+            return [x, y];
+        }
+
+        function d2xy(n, d) {
+            let x = 0, y = 0, t = d;
+            for (let s = 1; s < n; s <<= 1) {
+                let rx = 1 & (t >> 1), ry = 1 & (t ^ rx);
+                [x, y] = rot(s, x, y, rx, ry);
+                x += s * rx; y += s * ry; t >>= 2;
+            }
+            return [x, y];
+        }
+
+        document.getElementById('dbIn').onchange = (e) => {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const buffer = event.target.result;
+                const str = new TextDecoder().decode(new Uint8Array(buffer.slice(0, 2000)));
+                const dimIdx = str.indexOf("dim\0");
+                if(dimIdx !== -1) {
+                    const match = str.substring(dimIdx+4, dimIdx+20).match(/(\d+)x(\d+)/);
+                    if(match) {
+                        vW = parseInt(match[1]); vH = parseInt(match[2]);
+                        displayCanvas.width = vW; displayCanvas.height = vH;
+                        N = Math.pow(2, Math.ceil(Math.log2(Math.max(vW, vH))));
+                    }
+                }
+                const img = new Image();
+                img.onload = () => {
+                    sCtx.drawImage(img, 0, 0);
+                    pCtx.drawImage(img, 0, 0);
+                    imgData = sCtx.getImageData(0, 0, 4000, 4000).data;
+                    document.getElementById('playBtn').disabled = false;
+                    status.innerText = "> DB_SYNC_SUCCESSFUL";
+                };
+                img.src = URL.createObjectURL(new Blob([buffer]));
+            };
+            reader.readAsArrayBuffer(file);
+        };
+
+        speedSlider.oninput = () => document.getElementById('speedVal').innerText = speedSlider.value;
+
+        document.getElementById('playBtn').onclick = () => {
+            if(isPlaying) { status.innerText = "> SYSTEM_RESTART..."; }
+            isPlaying = true;
+            let ptr = 0;
+            marker.style.display = 'block';
+
+            function renderFrame() {
+                if(!isPlaying) return;
+                const speed = parseInt(speedSlider.value);
+                
+                for (let f = 0; f < speed; f++) {
+                    const frameImg = dCtx.createImageData(N, N);
+                    let pixelIdx = 0;
+
+                    while (pixelIdx < N * N && ptr < imgData.length) {
+                        let r = imgData[ptr], g = imgData[ptr+4], b = imgData[ptr+8], run = imgData[ptr+12];
+                        ptr += 16;
+                        if (r === 255 && g === 255 && b === 255) break;
+
+                        for (let k = 0; k < run && pixelIdx < N * N; k++) {
+                            const [x, y] = d2xy(N, pixelIdx);
+                            const outIdx = (y * N + x) * 4;
+                            frameImg.data[outIdx] = r; frameImg.data[outIdx+1] = g;
+                            frameImg.data[outIdx+2] = b; frameImg.data[outIdx+3] = 255;
+                            pixelIdx++;
+                        }
+                    }
+
+                    const finalFrame = dCtx.createImageData(vW, vH);
+                    for(let y=0; y<vH; y++) for(let x=0; x<vW; x++) {
+                        const sI = (y*N+x)*4, dI = (y*vW+x)*4;
+                        finalFrame.data[dI] = frameImg.data[sI]; finalFrame.data[dI+1] = frameImg.data[sI+1];
+                        finalFrame.data[dI+2] = frameImg.data[sI+2]; finalFrame.data[dI+3] = 255;
+                    }
+                    dCtx.putImageData(finalFrame, 0, 0);
+                    ptr += 4;
+                    if (ptr >= imgData.length || imgData[ptr+3] === 0) break;
+                }
+
+                const pixIdx = Math.floor(ptr / 4);
+                const dbX = pixIdx % 4000, dbY = Math.floor(pixIdx / 4000);
+                const rect = dbPreview.getBoundingClientRect();
+                const scale = rect.width / 4000;
+                
+                // Constraints: hide if out of data
+                if (ptr < imgData.length && imgData[ptr+3] !== 0) {
+                    marker.style.left = (dbX * scale) + "px";
+                    marker.style.top = (dbY * scale) + "px";
+                    
+                    const progress = Math.min(100, (ptr / imgData.length) * 100);
+                    progressBar.style.width = progress + "%";
+                    progressText.innerText = Math.floor(progress) + "%";
+
+                    setTimeout(() => requestAnimationFrame(renderFrame), 1000/FPS);
+                } else {
+                    isPlaying = false;
+                    marker.style.display = 'none';
+                    status.innerText = "> STREAM_COMPLETE. READY_FOR_RESTART.";
+                }
+            }
+            renderFrame();
+        };
+    </script>
+</body>
+</html>

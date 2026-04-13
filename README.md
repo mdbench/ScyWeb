@@ -60,6 +60,12 @@ Lossless compression is not used on unscrambled movies. Scrambled movies are muc
 
 ### Success of movie scrambling for tailored use cases is high. Unique, viable use for making uninterrupted and uncompromised streaming, making a video stream unable to be modified in transit when delivered to users in real-time, offloading costs to user devices when it comes to unscrambling and re-rendering. Other uses include secure Bluerays, DVDs, and new age optical drives. Advanced use cases for movies delivered to theaters to prevent bootlegging.
 
+## Streaming scrambling
+- [Demo](https://demos.matthewbenchimol.com/ScyWeb/ScyWebVideoStreamTester.html)
+- [Demo Stream DB](https://raw.githubusercontent.com/mdbench/ScyWeb/refs/heads/main/VIDEO_StreamTester.png)
+
+### Success of streaming scrambler for tailored use cases is high. Unique, viable use for making pre-buffered streaming with auto-download for playback.
+
 ## Audio scrambling
 The audio scrambling methodology takes an audio file, converts it to an image, and scrambles it using the default mode. It saves the resulting file with an mp3 extension, even though it is an image. When you add the scrambled audio file, unscrambling it, it is a perfect replication of the audio file, allowing you to store music in an encrypted format. Since music is already highly diffuse with high entropy, the default mode is sufficient to make the resulting scrambled audio image ultra quantum proof. This audio methodology also creates a 1:1 file size where the original audio file size is the exact size of the resulting scrambled image. You essentially lose nothing storage wise. Because it is unmodifiable without corrupting the audio image, this means it is impossible to modify your copy of whatever audio file you have.
 - [Original MP3 Test File](https://raw.githubusercontent.com/mdbench/ScyWeb/refs/heads/main/ORIGINAL_AUDIO_solarflex-jazz-cafe-music-509921.mp3)
