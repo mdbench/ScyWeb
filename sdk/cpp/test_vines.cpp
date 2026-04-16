@@ -24,15 +24,15 @@ int main() {
 
     // Creating the test DBs
     scy.createPPM_DB(path);
-    scy.syncDatabase(path2, 1);
+    scy.syncPNG(path2, "load");
 
     // Test both PPM and PNG DBs
     scy.putToPPM(testKey, testValue, password);
     scy.putToPNG(testKey, testValue, password);
 
     // sync changes and refresh
-    scy.syncDatabase(path2, 0);
-    scy.syncDatabase(path2, 1);
+    scy.syncPNG(path2, "commit");
+    scy.syncPNG(path2, "load");
 
     // Retrieve the results from both DBs
     std::string result = scy.getFromPPM(testKey, password);

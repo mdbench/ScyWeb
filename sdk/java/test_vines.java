@@ -1,56 +1,60 @@
-import java.io.File;
-import java.io.RandomAccessFile;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
 public class test_vines {
     public static void main(String[] args) {
-        String testKey = "User";
-        String testValue = "Amanda";
-        String password = "ScyWeb_Global_Secret_2026";
-        String dbDir = "vines_images";
-        String dbPath = dbDir + "/java_vine.ppm";
+        final String dir = "vines_images";
+        final String pathPPM = dir + "/java_vine.ppm";
+        final String pathPNG = dir + "/java_vine.png";
+        final String testKey = "User";
+        final String testValue = "Amanda";
+        final String password = "ScyWeb_Global_Secret_2026";
 
         try {
-            // PHYSICAL FILE SETUP
-            Files.createDirectories(Paths.get(dbDir));
-            File file = new File(dbPath);
-            
-            try (RandomAccessFile raf = new RandomAccessFile(file, "rw")) {
-                // Write exact 15-byte header parity
-                byte[] header = "P6 4000 4000 255\n".getBytes();
-                raf.write(header, 0, 15);
-                
-                // Allocate 48MB (Total: 48,000,015 bytes)
-                raf.setLength(48000015);
-            }
+            // Ensure the local folder exists
+            Files.createDirectories(Paths.get(dir));
 
-            // INITIALIZE KERNEL
-            // Ensuring the constructor matches: (password, path)
-            ScyKernel scy = new ScyKernel(password, dbPath);
+            // Instantiate ScyKernel (Constructor: password, default path)
+            ScyKernel scy = new ScyKernel(password, pathPPM);
 
-            // SOW: Put operation (Must use 1600 offset internally)
-            scy.put(testKey, testValue, password);
+            // Creating the test DBs
+            scy.createPPM_DB(pathPPM);
+            scy.syncPNG(pathPNG, "load");
 
-            // HARVEST: Get operation
-            String result = scy.get(testKey, password);
+            // Test both PPM and PNG DBs
+            scy.putToPPM(testKey, testValue, password);
+            scy.putToPNG(testKey, testValue, password);
 
-            if (testValue.equals(result)) {
-                System.out.printf("✅ Java KV Parity: SUCCESS (Recovered: %s)%n", result);
-                System.out.close();
-                scy.deleteDB(dbPath);
+            // sync changes and refresh
+            scy.syncPNG(pathPNG, "commit");
+            scy.syncPNG(pathPNG, "load");
+
+            // Retrieve the results from both DBs
+            String resultPPM = scy.getFromPPM(testKey, password);
+            String resultPNG = scy.getFromPNG(testKey, password);
+
+            // Output Comparison
+            if (testValue.equals(resultPPM) && testValue.equals(resultPNG)) {
+                String validationStatus = scy.validateDB(pathPPM) ? "Valid" : "Invalid";
+                System.out.printf("✅ Java KV Parity: SUCCESS (Recovered: %s)%n", resultPPM);
+                System.out.printf("🧩 PPM is: %s%n", validationStatus);
+                long pngSize = scy.getFileSize(pathPNG);
+                System.out.printf("📏 Size of Image DB: %d bytes%n", pngSize);
+                //scy.deleteDB(pathPPM);
+                //scy.deleteDB(pathPNG);
                 System.exit(0);
             } else {
                 System.out.println("❌ Java KV Parity: FAIL");
-                System.out.printf("Expected: %s, Got: [%s]%n", testValue, result);
-                System.out.close();
-                scy.deleteDB(dbPath);
+                System.out.printf("Expected: %s%n", testValue);
+                System.out.printf("Got PPM: [%s]%n", resultPPM);
+                System.out.printf("Got PNG: [%s]%n", resultPNG);
+                scy.deleteDB(pathPPM);
+                scy.deleteDB(pathPNG);
                 System.exit(1);
             }
 
         } catch (Exception e) {
-            System.err.println("❌ Java SDK Error: " + e.getMessage());
-            System.out.close();
+            System.err.println("❌ Java SDK Critical Error: " + e.getMessage());
             e.printStackTrace();
             System.exit(1);
         }
