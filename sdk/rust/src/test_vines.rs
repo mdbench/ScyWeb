@@ -1,45 +1,73 @@
-use scy_rust::ScyKernel; 
-use std::fs::{self, File, OpenOptions};
-use std::io::Write;
+use scy_rust::ScyKernel;
+use std::fs;
 use std::path::Path;
 
 fn main() {
+    let dir = "vines_images";
+    let path_ppm = format!("{}/rust_vine.ppm", dir);
+    let path_png = format!("{}/rust_vine.png", dir);
     let test_key = "User";
     let test_value = "Amanda";
     let password = "ScyWeb_Global_Secret_2026";
-    let db_dir = "vines_images";
-    let db_path = format!("{}/rust_vine.ppm", db_dir);
 
-    // 1. PHYSICAL FILE SETUP
-    if !Path::new(db_dir).exists() {
-        fs::create_dir_all(db_dir).expect("❌ Failed to create directory");
+    if !Path::new(dir).exists() {
+        fs::create_dir_all(dir).expect("❌ Failed to create directory");
     }
 
-    let file = File::create(&db_path).expect("❌ Failed to create database file");
-    
-    // Exact 15-byte header parity: "P6 4000 4000 255\n"
-    let header = b"P6 4000 4000 255\n";
-    file.set_len(48_000_015).expect("❌ Failed to allocate 48MB");
-    
-    let mut file_handle = OpenOptions::new().write(true).open(&db_path).unwrap();
-    file_handle.write_all(&header[..15]).expect("❌ Failed to write header");
+    let mut scy = ScyKernel::new(password.to_string(), path_ppm.clone());
 
-    // 2. INITIALIZE KERNEL
-    let scy = ScyKernel::new(password, &db_path);
+    scy.create_ppm_db(&path_ppm);
+    scy.sync_png(&path_png, "load");
 
-    // 3. SOW: Put operation
-    scy.put(test_key, test_value, password).expect("❌ Rust SDK Put Error");
+    scy.put_to_ppm(test_key, test_value, password);
+    scy.put_to_png(test_key, test_value, password);
 
-    // 4. HARVEST: Get operation
-    let result = scy.get(test_key, password).expect("❌ Rust SDK Get Error");
+    scy.sync_png(&path_png, "commit");
+    scy.sync_png(&path_png, "load");
 
-    if result == test_value {
+    let result = scy.get_from_ppm(test_key, password);
+    let result2 = scy.get_from_png(test_key, password);
+
+    if result == test_value && result2 == test_value {
+        let validation_test = if scy.validate_db(&path_ppm) { "Valid" } else { "Invalid" };
         println!("✅ Rust KV Parity: SUCCESS (Recovered: {})", result);
-        let _ = scy.delete_db(&db_path);
+        println!("🧩 PPM is: {}", validation_test);
+        
+        let size = scy.get_file_size(&path_png);
+        println!("📏 Size of Image DB: {} bytes", size);
+
+        let parity_checks = vec![
+            ("C++", "../cpp/vines_images/cpp_vine.png"),
+            ("Go", "../go/scykernel/vines_images/go_vine.png"),
+            ("Java", "../java/vines_images/java_vine.png"),
+            ("Node", "../javascript/vines_images/node_vine.png"),
+            ("Kotlin", "../kotlin/vines_images/kt_vine.png"),
+            ("PHP", "../php/vines_images/php_vine.png"),
+            ("Python", "../python/vines_images/py_vine.png"),
+            ("React Native", "../react-native/vines_images/rn_vine.png"),
+            ("Rust", "../rust/vines_images/rust_vine.png"),
+            ("Swift", "../swift/vines_images/swift_vine.png")
+        ];
+
+        for (lang, p) in parity_checks {
+            if Path::new(p).exists() {
+                let mut scy_p = ScyKernel::new(password.to_string(), p.to_string());
+                if scy_p.sync_png(p, "load") {
+                    let res_p = scy_p.get_from_png(test_key, password);
+                    if res_p == test_value {
+                        println!("✅ Rust to {} Parity: SUCCESS (Recovered: {})", lang, res_p);
+                    } else {
+                        println!("❌ Rust to {} Parity: FAIL", lang);
+                    }
+                }
+            }
+        }
         std::process::exit(0);
     } else {
-        println!("❌ Rust KV Parity: FAIL. Expected {}, Got [{}]", test_value, result);
-        let _ = scy.delete_db(&db_path);
+        println!("❌ Rust KV Parity: FAIL");
+        println!("Expected: {}, Got: PPM [{}], PNG [{}]", test_value, result, result2);
+        scy.delete_db(&path_ppm);
+        scy.delete_db(&path_png);
         std::process::exit(1);
     }
 }

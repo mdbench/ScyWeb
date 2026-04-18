@@ -1,5 +1,8 @@
+import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.Map;
+import java.util.LinkedHashMap;
 
 public class test_vines {
     public static void main(String[] args) {
@@ -42,6 +45,32 @@ public class test_vines {
                 System.out.printf("📏 Size of Image DB: %d bytes%n", pngSize);
                 //scy.deleteDB(pathPPM);
                 //scy.deleteDB(pathPNG);
+                Map<String, String> parityConfigs = new LinkedHashMap<>();
+                parityConfigs.put("C++", "../cpp/vines_images/cpp_vine.png");
+                parityConfigs.put("Go", "../go/scykernel/vines_images/go_vine.png");
+                parityConfigs.put("Java", "../java/vines_images/java_vine.png");
+                parityConfigs.put("Node", "../javascript/vines_images/node_vine.png");
+                parityConfigs.put("Kotlin", "../kotlin/vines_images/kt_vine.png");
+                parityConfigs.put("PHP", "../php/vines_images/php_vine.png");
+                parityConfigs.put("Python", "../python/vines_images/py_vine.png");
+                parityConfigs.put("React Native", "../react-native/vines_images/rn_vine.png");
+                parityConfigs.put("Rust", "../rust/vines_images/rust_vine.png");
+                parityConfigs.put("Swift", "../swift/vines_images/swift_vine.png");
+                for (Map.Entry<String, String> entry : parityConfigs.entrySet()) {
+                    String lang = entry.getKey();
+                    String lPath = entry.getValue();
+                    if (new File(lPath).exists()) {
+                        ScyKernel scyCheck = new ScyKernel(password, lPath);
+                        if (scyCheck.syncPNG(lPath, "load")) {
+                            String res = scyCheck.getFromPNG(testKey, password);
+                            if (res.equals(testValue)) {
+                                System.out.println("✅ Java to " + lang + " Parity: SUCCESS (Recovered: " + res + ")");
+                            } else {
+                                System.out.println("❌ Java to " + lang + " Parity: FAIL");
+                            }
+                        }
+                    }
+                }
                 System.exit(0);
             } else {
                 System.out.println("❌ Java KV Parity: FAIL");

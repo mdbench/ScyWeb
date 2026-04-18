@@ -79,8 +79,8 @@ jobs:
       - name: Run Go Test
         if: matrix.kernel == 'go'
         run: |
-          cd sdk/go
-          go run .
+          cd sdk/go/scykernel
+          go test -v
 
       # --- JAVA & KOTLIN ---
       - name: Setup Java/Kotlin

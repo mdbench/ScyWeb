@@ -21,29 +21,40 @@ private:
     std::vector<uint8_t> dbBuffer;
 
     // Deterministic FNV-1a Hash + Alphabet Salt
+    uint32_t getHVal(const std::string& pwd) {
+        uint32_t hash = 7;
+        for (size_t i = 0; i < pwd.length(); i++) {
+            hash = (hash * 31 + static_cast<uint8_t>(pwd[i]));
+        }
+        double normalized = (static_cast<double>(hash) / 4294967296.0);
+        uint32_t result = static_cast<uint32_t>(std::floor(normalized * 16000000.0));
+        //printf("[C++ SEED] Hash: 0x%08X | hVal: %u\n", hash, result);
+        return result;
+    }
+
     int deriveIndex(const std::string& key, const std::string& password) {
-        uint32_t hash = 0x811c9dc5; // FNV offset basis
-        uint32_t prime = 0x01000193; // FNV prime
-        long alphaSalt = 0;
+        uint32_t hash = 0x811c9dc5;
+        uint32_t prime = 0x01000193;
+        uint32_t alphaSalt = 0;
         if (!password.empty()) {
-            for (char c : password) {
-                hash ^= (uint8_t)c;
+            for (size_t i = 0; i < password.length(); i++) {
+                hash ^= static_cast<uint8_t>(password[i]);
                 hash *= prime;
             }
         }
-        for (char c : key) {
-            // FNV-1a Math
-            hash ^= (uint8_t)c;
+        for (size_t i = 0; i < key.length(); i++) {
+            uint8_t b = static_cast<uint8_t>(key[i]);
+            hash ^= b;
             hash *= prime;
-            // Alphabet Salt Math (A=1, B=2...)
-            if (std::isalpha(static_cast<unsigned char>(c))) {
-                alphaSalt += (std::tolower(static_cast<unsigned char>(c)) - 'a' + 1);
+            if (std::isalpha(static_cast<unsigned char>(b))) {
+                alphaSalt += static_cast<uint32_t>(std::tolower(static_cast<unsigned char>(b)) - 'a' + 1);
             }
         }
-        // Combine, truncate to 32-bit unsigned, then project
-        uint32_t finalVal = static_cast<uint32_t>(static_cast<long>(hash) + alphaSalt);
-        double normalized = (static_cast<double>(finalVal) / 4294967296.0) * 16000000.0;
-        return static_cast<int>(std::floor(normalized));
+        uint32_t finalVal = (hash + alphaSalt);
+        double normalized = (static_cast<double>(finalVal) / 4294967296.0);
+        int result = static_cast<int>(std::floor(normalized * 16000000.0));
+        //printf("[C++ INDEX] Key: %s | Hash: 0x%08X | Index: %d\n", key.c_str(), finalVal, result);
+        return result;
     }
 
     void d2xy(int n, int d, int &x, int &y) {
@@ -67,16 +78,6 @@ private:
             }
             std::swap(x, y);
         }
-    }
-
-    int getHVal(const std::string& pwd) {
-        uint32_t hash = 7;
-        for (char c : pwd) {
-            hash = (hash * 31) + (uint8_t)c;
-        }
-        // Project onto the 16M canvas
-        double normalized = (static_cast<double>(hash) / 4294967296.0) * 16000000.0;
-        return static_cast<int>(std::floor(normalized));
     }
 
     /**
@@ -294,7 +295,7 @@ public:
                         decomp.begin() + (r * 12001) + 12001, 
                         dbBuffer.begin() + (r * 12000));
             }
-            std::cout << "✅ PNG Load Successful: " << filename << std::endl;
+            //std::cout << "✅ PNG Load Successful: " << filename << std::endl;
             return true;
         } else {
             std::cerr << "❌ Invalid Sync Mode. Use 'Commit' or 'Load'." << std::endl;

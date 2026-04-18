@@ -23,37 +23,51 @@ public class ScyKernel {
         this.dbBuffer = new byte[canvasSize * canvasSize * 3];
     }
 
+    // Deterministic FNV-1a Hash + Alphabet Salt for Cross-Language Parity
+    private int deriveIndex(String key, String password) {
+        long hash;
+        hash = 0x811c9dc5L & 0xFFFFFFFFL;
+        long prime;
+        prime = 0x01000193L;
+        long alphaSalt;
+        alphaSalt = 0;
+        if (password != null && !password.isEmpty()) {
+            for (int i = 0; i < password.length(); i++) {
+                hash ^= (password.charAt(i) & 0xFF);
+                hash = (hash * prime) & 0xFFFFFFFFL;
+            }
+        }
+        for (int i = 0; i < key.length(); i++) {
+            char c;
+            c = key.charAt(i);
+            hash ^= (c & 0xFF);
+            hash = (hash * prime) & 0xFFFFFFFFL;
+            if (Character.isLetter(c)) {
+                alphaSalt += (Character.toLowerCase(c) - 'a' + 1);
+            }
+        }
+        long finalVal;
+        finalVal = (hash + alphaSalt) & 0xFFFFFFFFL;
+        double normalized;
+        normalized = (double) finalVal / 4294967296.0;
+        int result;
+        result = (int) Math.floor(normalized * 16000000.0);
+        return result;
+    }
+
     private int getHVal(String pwd) {
-        int hash = 7;
+        int hash;
+        hash = 7;
         for (int i = 0; i < pwd.length(); i++) {
             hash = hash * 31 + pwd.charAt(i);
         }
-        return (int) (((double) (hash & 0xFFFFFFFFL) / 4294967296.0) * 16000000);
-    }
-
-    // Deterministic FNV-1a Hash + Alphabet Salt for Cross-Language Parity
-    private int deriveIndex(String key, String password) {
-        long hash = 0x811c9dc5L & 0xffffffffL; // FNV offset basis (uint32)
-        long prime = 0x01000193L;              // FNV prime
-        long alphaSalt = 0;
-        for (byte b : password.getBytes()) {
-            hash ^= (b & 0xFF); // Ensure unsigned byte treatment
-            hash = (hash * prime) & 0xFFFFFFFFL; // Mask to 32-bit
-        }
-        String lowerKey = key.toLowerCase();
-        for (int i = 0; i < key.length(); i++) {
-            char c = key.charAt(i);
-            // FNV-1a Math (keep it 32-bit unsigned logic)
-            hash ^= (key.charAt(i) & 0xff);
-            hash = (hash * prime) & 0xffffffffL;
-            // Alphabet Salt Math (A=1, B=2...)
-            if (Character.isLetter(c)) {
-                alphaSalt += (lowerKey.charAt(i) - 'a' + 1);
-            }
-        }
-        long finalHash = (hash + alphaSalt) & 0xFFFFFFFFL;
-        double normalized = ((double) finalHash / 4294967296.0) * 16000000.0;
-        return (int) Math.floor(normalized);
+        long unsignedHash;
+        unsignedHash = (long) hash & 0xFFFFFFFFL;
+        double normalized;
+        normalized = (double) unsignedHash / 4294967296.0;
+        int result;
+        result = (int) Math.floor(normalized * 16000000.0);
+        return result;
     }
 
     private void d2xy(int n, int d, int[] coords) {
@@ -86,11 +100,21 @@ public class ScyKernel {
         coords[1] = y;
     }
 
-    public byte cryptByte(byte data, String password, int position) {
-        if (password == null || password.isEmpty()) return data;
-        int charIndex = position % password.length();
-        int salt = password.charAt(charIndex) ^ position;
-        int result = (data & 0xFF) ^ (salt & 0xFF);
+    private byte cryptByte(byte c, String password, int position) {
+        long salt;
+        salt = 0x811c9dc5L & 0xFFFFFFFFL;
+        long prime;
+        prime = 16777619L;
+        for (int i = 0; i < password.length(); i++) {
+            salt = ((salt ^ (password.charAt(i) & 0xFF)) * prime) & 0xFFFFFFFFL;
+        }
+        long mixed;
+        mixed = (salt ^ ((long) position * 0xdeadbeefL)) & 0xFFFFFFFFL;
+        mixed ^= (mixed >>> 16);
+        byte keyByte;
+        keyByte = (byte) (mixed & 0xFF);
+        int result;
+        result = (c & 0xFF) ^ (keyByte & 0xFF);
         return (byte) result;
     }
 
@@ -302,7 +326,7 @@ public class ScyKernel {
                 for (int r = 0; r < 4000; r++) {
                     System.arraycopy(decomp, (r * 12001) + 1, dbBuffer, r * 12000, 12000);
                 }
-                System.out.println("✅ PNG Load Successful: " + filename);
+                //System.out.println("✅ PNG Load Successful: " + filename);
                 return true;
             } catch (IOException | DataFormatException e) {
                 return false;

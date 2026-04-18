@@ -2,6 +2,7 @@
 #include <fstream>
 #include <string>
 #include <filesystem>
+#include <vector>
 #include "ScyKernel.hpp" 
 
 namespace fs = std::filesystem;
@@ -46,6 +47,32 @@ int main() {
         size_t size = scy.getFileSize(path2);
         std::string sizeStr = std::to_string(size) + " bytes";
         std::cout << "📐 Size of Image DB: " << sizeStr << std::endl;
+        struct ParityConfig { std::string lang; std::string path; };
+        std::vector<ParityConfig> configs = {
+            {"C++", "../cpp/vines_images/cpp_vine.png"},
+            {"Go", "../go/scykernel/vines_images/go_vine.png"},
+            {"Java", "../java/vines_images/java_vine.png"},
+            {"Node", "../javascript/vines_images/node_vine.png"},
+            {"Kotlin", "../kotlin/vines_images/kt_vine.png"},
+            {"PHP", "../php/vines_images/php_vine.png"},
+            {"Python", "../python/vines_images/py_vine.png"},
+            {"React Native", "../react-native/vines_images/rn_vine.png"},
+            {"Rust", "../rust/vines_images/rust_vine.png"},
+            {"Swift", "../swift/vines_images/swift_vine.png"}
+        };
+        for (const auto& cfg : configs) {
+            if (std::filesystem::exists(cfg.path)) {
+                ScyKernel scyCheck(password, cfg.path);
+                if (scyCheck.syncPNG(cfg.path, "load")) {
+                    std::string res = scyCheck.getFromPNG(testKey, password);
+                    if (res == testValue) {
+                        std::cout << "✅ C++ to " << cfg.lang << " Parity: SUCCESS (Recovered: " << res << ")" << std::endl;
+                    } else {
+                        std::cout << "❌ C++ to " << cfg.lang << " Parity: FAIL" << std::endl;
+                    }
+                }
+            }
+        }
         //scy.deleteDB(path);
         //scy.deleteDB(path2);
         return 0;
