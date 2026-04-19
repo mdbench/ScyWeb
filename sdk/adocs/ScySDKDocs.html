@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScySDK Documentation</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0a0a0c;
+            --bg-sidebar: #121217;
+            --accent-purple: #9d4edd;
+            --heading-purple: #E4A0F7;
+            --accent-glow: #7b2cbf;
+            --text-main: #e0e0e0;
+            --text-dim: #949494;
+            --border-color: #2d2d3a;
+        }
+
+        body, html {
+            margin: 0; padding: 0;
+            height: 100%;
+            background-color: var(--bg-primary);
+            color: var(--text-main);
+            font-family: 'Inter', -apple-system, sans-serif;
+            overflow: hidden;
+        }
+
+        a {
+            color: plum;
+        }
+
+        .layout {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Sidebar Styling */
+        .sidebar {
+            width: 300px;
+            background-color: var(--bg-sidebar);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .sidebar-header {
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .logo {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--accent-purple);
+            letter-spacing: -1px;
+        }
+
+        .nav-section {
+            padding: 20px 0;
+        }
+
+        .section-title {
+            padding: 10px 25px;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-dim);
+            font-weight: 700;
+        }
+
+        .tree-item {
+            padding: 8px 25px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+            display: block;
+            text-decoration: none;
+            color: var(--text-main);
+        }
+
+        .tree-item:hover {
+            background: rgba(157, 78, 221, 0.1);
+            color: var(--accent-purple);
+        }
+
+        .tree-subfolder {
+            padding-left: 40px;
+            display: none;
+        }
+
+        .tree-folder-toggle {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .active {
+            border-left: 3px solid var(--accent-purple);
+            background: rgba(157, 78, 221, 0.05);
+            color: var(--accent-purple);
+        }
+
+        /* Content Area */
+        .main-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            /*background-image: radial-gradient(circle at top right, #1a1a2e, transparent);*/
+            background-color: #0a0a0c;
+        }
+
+        #view-port {
+            flex-grow: 1;
+            padding: 40px;
+            overflow-y: auto;
+        }
+
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            border-radius: 8px;
+            background: white;
+        }
+
+        .md-container {
+            max-width: 900px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        .md-container h1, .md-container h2 { 
+            color: #fff; 
+            border-bottom: 2px dotted var(--heading-purple);
+            padding-bottom: 5px;
+        }
+        .md-container code {
+            background: #1e1e26; 
+            padding: 2px 6px; 
+            border-radius: 4px; 
+        }
+
+        .md-container th, .md-container td {
+            border: 1px solid #fff;
+            padding: 8px;
+        }
+
+        .md-container hr {
+            border-bottom: 2px dotted var(--heading-purple);
+            padding-bottom: 5px;
+            border-top: none;
+            border-left: none;
+            border-right: none;
+        }
+
+        @media screen and (min-width: 1500px) {
+            body {
+                background-color: var(--border-color);
+            }
+            .layout {
+                position: fixed;
+                left: calc((100% - 1500px)/2);
+                right: calc((100% - 1500px)/2);
+            }
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="layout">
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo"><img alt="ScySDK Logo" src="https://raw.githubusercontent.com/mdbench/ScyWeb/master/sdk/logo.png" width="100%" height="auto"></div>
+        </div>
+
+        <nav class="nav-section">
+            <div class="section-title">Assessments</div>
+            <a href="#" class="tree-item" onclick="loadContent('scysdk_vs_mysql.md', 'md')">MySQL / MariaDB Analysis</a>
+            <a href="#" class="tree-item" onclick="loadContent('scysdk_vs_postgres.md', 'md')">PostgreSQL Analysis</a>
+            <a href="#" class="tree-item" onclick="loadContent('scysdk_vs_mongodb.md', 'md')">MongoDB Analysis</a>
+            <a href="#" class="tree-item" onclick="loadContent('scysdk_vs_redis.md', 'md')">Redis Analysis</a>
+
+            <div class="section-title">SDK Documentation</div>
+            
+            <div id="sdk-tree">
+
+                <div class="tree-item tree-folder-toggle" onclick="toggleFolder('cpp-docs')">
+                    <span>C++</span> <span>+</span>
+                </div>
+                <div id="cpp-docs" class="tree-subfolder">
+                    <!--<a href="#" class="tree-item" onclick="loadContent('python/', 'md')"></a>-->
+                </div>
+
+                <div class="tree-item tree-folder-toggle" onclick="toggleFolder('go-docs')">
+                    <span>GO</span> <span>+</span>
+                </div>
+                <div id="go-docs" class="tree-subfolder">
+                    <!--<a href="#" class="tree-item" onclick="loadContent('go/', 'md')"></a>-->
+                </div>
+
+                <div class="tree-item tree-folder-toggle" onclick="toggleFolder('java-docs')">
+                    <span>Java</span> <span>+</span>
+                </div>
+                <div id="java-docs" class="tree-subfolder">
+                    <!--<a href="#" class="tree-item" onclick="loadContent('java/', 'md')"></a>-->
+                </div>
+
+                <div class="tree-item tree-folder-toggle" onclick="toggleFolder('javascript-docs')">
+                    <span>NodeJS</span> <span>+</span>
+                </div>
+                <div id="javascript-docs" class="tree-subfolder">
+                    <!--<a href="#" class="tree-item" onclick="loadContent('javascript/', 'md')"></a>-->
+                </div>
+
+                <div class="tree-item tree-folder-toggle" onclick="toggleFolder('kotlin-docs')">
+                    <span>Kotlin</span> <span>+</span>
+                </div>
+                <div id="kotlin-docs" class="tree-subfolder">
+                    <!--<a href="#" class="tree-item" onclick="loadContent('kotlin/', 'md')"></a>-->
+                </div>
+
+                <div class="tree-item tree-folder-toggle" onclick="toggleFolder('php-docs')">
+                    <span>PHP</span> <span>+</span>
+                </div>
+                <div id="php-docs" class="tree-subfolder">
+                    <!--<a href="#" class="tree-item" onclick="loadContent('php/', 'md')"></a>-->
+                </div>
+
+                <div class="tree-item tree-folder-toggle" onclick="toggleFolder('python-docs')">
+                    <span>Python</span> <span>+</span>
+                </div>
+                <div id="python-docs" class="tree-subfolder">
+                    <!--<a href="#" class="tree-item" onclick="loadContent('python/', 'md')"></a>-->
+                </div>
+
+                <div class="tree-item tree-folder-toggle" onclick="toggleFolder('react-native-docs')">
+                    <span>React Native</span> <span>+</span>
+                </div>
+                <div id="react-native-docs" class="tree-subfolder">
+                    <!--<a href="#" class="tree-item" onclick="loadContent('react-native/', 'md')"></a>-->
+                </div>
+
+                <div class="tree-item tree-folder-toggle" onclick="toggleFolder('rust-docs')">
+                    <span>Rust</span> <span>+</span>
+                </div>
+                <div id="rust-docs" class="tree-subfolder">
+                    <!--<a href="#" class="tree-item" onclick="loadContent('rust/', 'md')"></a>-->
+                </div>
+
+                <div class="tree-item tree-folder-toggle" onclick="toggleFolder('swift-docs')">
+                    <span>Swift</span> <span>+</span>
+                </div>
+                <div id="swift-docs" class="tree-subfolder">
+                    <!--<a href="#" class="tree-item" onclick="loadContent('swift/', 'md')"></a>-->
+                </div>
+
+            </div>
+        </nav>
+    </aside>
+
+    <main class="main-content">
+        <div id="view-port">
+            <div class="md-container">
+                <h1>Welcome to ScySDK Docs!</h1>
+                <p>Select an assessment or language-specific SDK documentation from the sidebar to begin technical review.</p>
+                <hr style="border-color: var(--border-color); margin: 20px 0;">
+                <p style="color: var(--text-dim)">The ScySDK Documentation Hub provides a bifurcated interface designed to bridge the gap between theoretical security assessments and practical implementation. On the primary navigation sidebar, users will find a clear distinction between the Assessment Section and the SDK Documentation. The Assessment area is a repository of mathematical deep-dives, comparing the ScySDK geometric manifold against legacy relational and document-based databases. These technical whitepapers serve to validate the architectural superiority of the Hilbert-curve logic and provide the empirical evidence required for infrastructure verification and patent protection strategies.</p>
+                <p style="color: var(--text-dim)">The secondary section of the hub is the SDK Documentation Tree, a language-agnostic integration guide organized by local directory structures. By navigating the collapsible language nodes — which support ten distinct environments from C++ and Rust to React Native and Swift — developers can access specific implementation modules.</p>
+                <p style="color: var(--text-dim)">To utilize this portal effectively, simply select an analysis from the Assessment section to view the structural and security performance metrics of the image-based database. For active development, drill down into the language folder corresponding to your project stack to find detailed guides on utilizing the ScySDK "vines" for high-performance data retrieval.</p>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script>
+    function toggleFolder(id) {
+        const folder = document.getElementById(id);
+        folder.style.display = (folder.style.display === 'block') ? 'none' : 'block';
+    }
+
+    async function loadContent(path, type) {
+        const viewport = document.getElementById('view-port');
+        viewport.innerHTML = '<div style="color: var(--accent-purple)">Initializing decryption and fetching manifold data...</div>';
+
+        if (type === 'pdf') {
+            viewport.innerHTML = `<iframe src="${path}"></iframe>`;
+        } else if (type === 'md') {
+            try {
+                const response = await fetch(path);
+                const text = await response.text();
+                viewport.innerHTML = `<div class="md-container">${marked.parse(text)}</div>`;
+            } catch (err) {
+                viewport.innerHTML = `<div class="md-container"><h2>Error Loading Module</h2><p>Path: ${path} not found in local directory.</p></div>`;
+            }
+        }
+    }
+</script>
+
+</body>
+</html>
