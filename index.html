@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScyWeb et al...</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #050507;
+            --bg-sidebar: #0d0d12;
+            --accent-purple: #9d4edd;
+            --accent-glow: rgba(157, 78, 221, 0.4);
+            --text-main: #e0e0e0;
+            --text-dim: #70707b;
+            --border: #1f1f27;
+            --sidebar-width: 300px;
+        }
+
+        * { box-sizing: border-box; }
+        body, html {
+            margin: 0; padding: 0;
+            height: 100%;
+            background-color: var(--bg-primary);
+            color: var(--text-main);
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden;
+        }
+
+        .app-container {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        .sidebar {
+            width: var(--sidebar-width);
+            background-color: var(--bg-sidebar);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s ease;
+            z-index: 1000;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            color: var(--accent-purple);
+            font-weight: 800;
+            font-size: 1.2rem;
+            letter-spacing: 1px;
+        }
+
+        .nav-content {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 20px 0;
+        }
+
+        .subfolder-header {
+            padding: 15px 25px 5px 25px;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--text-dim);
+            font-weight: 700;
+        }
+
+        .nav-item {
+            padding: 12px 25px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            color: var(--text-main);
+            display: block;
+            text-decoration: none;
+            transition: all 0.2s;
+            border-left: 3px solid transparent;
+        }
+
+        .nav-item:hover {
+            background: rgba(157, 78, 221, 0.05);
+            color: var(--accent-purple);
+        }
+
+        .nav-item.active {
+            background: rgba(157, 78, 221, 0.1);
+            color: var(--accent-purple);
+            border-left-color: var(--accent-purple);
+        }
+
+        .main-view {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .viewport-container { display: flex; flex-direction: row; flex-grow: 1; width: 100%; background: var(--border); overflow: hidden; }
+
+        .pane { flex: 1; height: 100%; background: var(--border); overflow-y: auto; position: relative; transition: all 0.3s ease; }
+
+        #readme-pane {
+            display: none; 
+            background: #0d0d12;
+            padding: 40px;
+            color: var(--text-main);
+            border-left: 1px solid var(--border);
+        }
+
+        .markdown-body { max-width: 800px; margin: 0 auto; line-height: 1.6; }
+        .markdown-body h1, .markdown-body h2 { color: var(--accent-purple); border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+        .markdown-body code { background: #1e1e26; padding: 3px 6px; border-radius: 4px; font-family: monospace; }
+        .markdown-body pre { background: #1e1e26; padding: 15px; border-radius: 8px; overflow-x: auto; }
+        .markdown-body img { width: 100%; height: auto; }
+        .markdown-body a { color: plum; }
+
+        .readme-toggle {
+            position: fixed; bottom: 30px; right: 30px;
+            background: var(--accent-purple); color: white; border: none;
+            padding: 15px 25px; border-radius: 50px; cursor: pointer;
+            font-weight: bold; box-shadow: 0 4px 20px var(--accent-glow);
+            z-index: 1001; transition: transform 0.2s;
+        }
+        .readme-toggle:active { transform: scale(0.95); }
+
+        #content-frame {
+            width: 100%;
+            height: calc(100% - 10px) !important;
+            border: none;
+            background: #000;
+        }
+
+        .mobile-header {
+            display: none;
+            background: var(--bg-sidebar);
+            padding: 15px;
+            border-bottom: 1px solid var(--border);
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .menu-btn {
+            background: none;
+            border: none;
+            color: var(--accent-purple);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        @media (max-width: 768px) {
+            .mobile-header { display: flex; }
+            .sidebar {
+                position: absolute;
+                left: 0; top: 0; bottom: 0;
+                transform: translateX(-100%);
+            }
+            .sidebar.open { transform: translateX(0); }
+            .overlay {
+                display: none;
+                position: fixed;
+                inset: 0;
+                background: rgba(0,0,0,0.7);
+                z-index: 999;
+            }
+            .overlay.active { display: block; }
+            .readme-toggle { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="overlay" id="overlay" onclick="toggleMenu()"></div>
+
+<div class="app-container">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">ScyWeb et al...</div>
+            <button class="readme-toggle" onclick="toggleReadme('./README.md')">VIEW README.md</button>
+            <button class="menu-btn" style="display: none;" id="close-btn" onclick="toggleMenu()">✕</button>
+        </div>
+        <nav class="nav-content" id="sidebar-nav">
+            </nav>
+    </aside>
+
+    <div class="main-view">
+        <header class="mobile-header">
+            <button class="menu-btn" onclick="toggleMenu()">☰</button>
+            <div class="logo">ScyWeb et al...</div>
+            <div style="width: 24px;"></div> </header>
+        <div class="viewport-container">
+            <div class="pane" id="main-pane">
+                <iframe id="content-frame" src="" srcdoc="<html style='background-color: #000; overflow: hidden; font-family: Roboto, Helvetica, Arial, sans-serif;'><style>@media (max-width: 768px) { body{ justify-content: start !important;} }</style><body style='width: calc(100% - 40px); height: calc(100vh - 40px); display: flex; justify-content: center; align-items: center; flex-flow: column; margin: 0; padding: 20px;'><img alt='ScyWeb Logo' src='./ScyWebLogo.jpg' width='50%' height='auto'><p style='color: #fff; max-width: 500px;'>ScyWeb represents a paradigm shift in data sovereignty, serving as a post-quantum resistant image-scrambling framework designed to secure sensitive data within non-linear, high-entropy manifolds. Unlike traditional encryption that relies on textual or mathematical patterns vulnerable to heuristic analysis and quantum-compute factoring, ScyWeb utilizes fractal geometry—specifically Hilbert and Morton-Z space-filling curves—to map information into a bit-perfect image database that is mathematically indistinguishable from noise without the original 256-bit entropy seed.</p></body></html>" style="width:100%; height:100%; border:none;"></iframe>
+            </div>
+
+            <div class="pane" id="readme-pane">
+                <div id="readme-content" class="markdown-body">
+                    <p style="color:var(--text-dim)">Fetch protocol initialized. Awaiting README selection...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // global vars
+    let isReadmeOpen = false;
+    const assessments = [
+        { label: "ScyWeb", path: "ScyWeb.html", category: "User Tools" },
+        { label: "ScySDK Database", path: "sdk/ScyWebSDKDemo.html", category: "ScySDK (Proofs et al...)" },
+        { label: "ScySDK Database Compressor", path: "sdk/ScyWebDatabaseCompressor.html", category: "ScySDK (Proofs et al...)" },
+        { label: "ScySDK Docs Hub", path: "sdk/adocs/ScySDKDocs.html", category: "ScySDK (Proofs et al...)" },
+        { label: "ScyWeb Compressor", path: "ScyWebCompressor.html", category: "Project Tools" },
+        { label: "ScyWeb Reconstructor", path: "ScyWebImageTester.html", category: "Project Tools" },
+        { label: "Txt-to-Encrypted", path: "ScyWebConverter.html", category: "Project Tools" },
+        { label: "ScyWeb NoSQL MZMO DB", path: "ScyWebDBMaker.html", category: "Proof of Methods" },
+        { label: "ScyWeb Tri-Coord SQL DB", path: "ScyWebSQLTester.html", category: "Proof of Methods" },
+        { label: "ScyWeb Math Proofs", path: "ScyWebMathProof.html", category: "Proof of Concepts" },
+        { label: "ScyWeb Video Test", path: "ScyWebVideoTester.html", category: "Proof of Concepts" },
+        { label: "ScyWeb Stream Test", path: "ScyWebVideoStreamTester.html", category: "Proof of Concepts" },
+        { label: "ScyWeb LaTeX Editor", path: "ScyWebWorkingPaper.html", category: "Academic" },
+        { label: "ScyWeb References", path: "ScyWebReferences.html", category: "Academic" },
+        { label: "Quantum Decoherence", path: "ScyWebDecoherenceWall.html", category: "Academic" }
+    ];
+
+    function initSidebar() {
+        const nav = document.getElementById('sidebar-nav');
+        const categories = [...new Set(assessments.map(item => item.category))];
+
+        categories.forEach(cat => {
+            // Add Category Header
+            const header = document.createElement('div');
+            header.className = 'subfolder-header';
+            header.innerText = cat;
+            nav.appendChild(header);
+
+            // Add Items for this category
+            assessments.filter(item => item.category === cat).forEach(item => {
+                const link = document.createElement('a');
+                link.className = 'nav-item';
+                link.innerText = item.label;
+                link.onclick = () => loadFile(item.path, link);
+                nav.appendChild(link);
+            });
+        });
+    }
+
+    function loadFile(path, element) {
+        const contentFrame = document.getElementById('content-frame');
+        // Update Frame
+        contentFrame.removeAttribute('srcdoc');
+        contentFrame.src = path;
+        
+        // Update UI Active State
+        document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+        element.classList.add('active');
+
+        // Close menu on mobile after selection
+        if (window.innerWidth <= 768) toggleMenu();
+    }
+
+    function toggleMenu() {
+        document.getElementById('sidebar').classList.toggle('open');
+        document.getElementById('overlay').classList.toggle('active');
+    }
+
+    async function toggleReadme(path) {
+        const pane = document.getElementById('readme-pane');
+        const content = document.getElementById('readme-content');
+        const mainPane = document.getElementById('main-pane');
+
+        if (!isReadmeOpen) {
+            try {
+                const response = await fetch(path);
+                if (!response.ok) throw new Error("README not found at " + path);
+                
+                const mdText = await response.text();
+                content.innerHTML = marked.parse(mdText);
+                
+                // Show pane and adjust layout
+                pane.style.display = 'block';
+                isReadmeOpen = true;
+            } catch (err) {
+                console.error(err);
+                alert("Could not load local README. Check console for path errors.");
+            }
+        } else {
+            pane.style.display = 'none';
+            isReadmeOpen = false;
+        }
+    }
+
+    // Run on load
+    initSidebar();
+</script>
+
+</body>
+</html>

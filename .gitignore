@@ -4,3 +4,13 @@ Morton_A Computer Oriented Geodetic Data Base and a New Technique in File Sequen
 sdk/**/*.scy
 sdk/**/*.log
 data/
+# Gemtale Local Persistence
+gemtale/models/
+gemtale/URLs.txt
+gemtale/*.ppm
+gemtale/*.png
+gemtale/*.safetensors
+gemtale/*.bin
+gemtale/*.pt
+gemtale/*.pth
+gemtale/*.gguf

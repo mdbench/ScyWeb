@@ -1,0 +1,21 @@
+# === ACADEMIC HUB SEEDS (Open Access) ===
+# arXiv is the gold standard for quantum-ph; these lists expand to 1000+ links
+https://arxiv.org/list/quant-ph/new
+https://arxiv.org/list/quant-ph/recent
+
+# === UNIVERSITY RESEARCH CENTERS ===
+# These pages contain links to internal group papers
+https://quantum.mit.edu/news/
+https://www.phi.nat.tum.de/qi/research/
+https://www.quantuminstitute.yale.edu/news
+
+# === INDUSTRY & STANDARDS (Informational) ===
+# These are blog-style layouts easy for BeautifulSoup to parse
+https://www.ibm.com/quantum/blog
+https://quantumai.google/blog
+https://www.nist.gov/news-events/news/search?s=quantum
+
+# === SCIENCE COMMUNICATION ===
+# High-quality technical summaries (High ARI scores)
+https://www.quantamagazine.org/tag/quantum-physics/
+https://phys.org/physics-news/quantum-physics/

@@ -1,5 +1,12 @@
 # ScyWeb
-[ScyWeb](https://demos.matthewbenchimol.com/ScyWeb/ScyWeb.html) is a lightweight, deployable web application that lets users scramble and unscramble image files from a browser.
+[ScyWeb](https://demos.matthewbenchimol.com/ScyWeb/ScyWeb.html) is a lightweight, deployable web application that lets users scramble and unscramble image files from a browser. The project has been extended to include things like: post quantum cryptography, audio-to-image re-filizing, and text-to-image re-filizing to secure and transform file systems in similar data formats without drastically increasing overhead. **Why would anyone want to make an mp3 or a txt file an image?**
+
+1) Impossible to recover data without password
+2) Immunity to file scanning by checksums and mime type
+3) Easier file handling, as data can be processed the same way every time
+4) Uninterrupted streams of data that cannot be compromised in transit
+
+> See below for an academic paper on geometric stream ciphers in the world of quantum computing, working demos, proof of methods, proof of concepts, a structured overview of the process, evaluations of strengths, .
 
 ![ScyWeb Logo](https://raw.githubusercontent.com/mdbench/ScyWeb/master/ScyWebLogo.jpg)
 
@@ -15,9 +22,9 @@ A scytale is an ancient Greek transposition cipher that utilizes a rod and parch
 Browsers have become state of the art applications. Many apps available on app stores can be made with wider compatibility for fractions of the code-base and energy. ScyWeb is only 345 lines of code at its base. Cybersecurity is getting harder and harder to achieve and an offline web app makes hacking virtually impossible, a breath of fresh air in a time of insecurity.
 
 ## Image Databasing
-- [Demo](https://demos.matthewbenchimol.com/ScyWeb/ScyWebDBMaker.html) a new ultra quantum resistant image database methodology. It allows you to batch nosql key queries.
-- [Demo](https://demos.matthewbenchimol.com/ScyWeb/ScyWebSQLTester.html) a new quantum resistant image database methodology. It allows you to use SQL queries. 
-- An [SDK](https://github.com/mdbench/ScyWeb/tree/main/sdk) is still under development as a working prototype.
+- [Demo](https://demos.matthewbenchimol.com/ScyWeb/ScyWebDBMaker.html) a new ultra quantum resistant image database methodology. It allows you to batch NoSQL key queries. This demo showcases the methodology only and will be sold as a subscription for  personal and enterprise use.
+- [Demo](https://demos.matthewbenchimol.com/ScyWeb/ScyWebSQLTester.html) a new quantum resistant image database methodology. It allows you to use SQL queries. This demo showcases the methodology only and will be sold as a subscription for  personal and enterprise use.
+- [ScySDK](https://github.com/mdbench/ScyWeb/tree/main/sdk) is still under development as a working prototype with a [documentation and assessment hub](https://demos.matthewbenchimol.com/ScyWeb/sdk/adocs/ScySDKDocs.html) for developers looking to determine if ScySDK is right for their development project. This demo is free-to-use in accordance with [GPLv3 license](https://github.com/mdbench/ScyWeb?tab=GPL-3.0-1-ov-file) license.
 
 ### Success of image databasing is extremely high, as it makes database storage concerns virtually obsolete.
 
@@ -44,7 +51,7 @@ Below is a demo to prove scrambling is irreversible using visual heuristics with
 ### Quantum-resistant method
 Quantum-proof method represents a significant increase in capability to defeat quantum computers using Grover's algo. Shor's algorithm is for integer factoring and discrete logarithms on quantum computers, working on numbers (encoded into qubits), not directly on images and this makes it easier to make images quantum proof, as Shor's algo is faster as an exponential speed up versus a quadratic one. All four methods are technically quantum proof, as each reaches far past grover's computational capability. Estimated qubits to beat 256-bit key is 1,200 to 2,500+ logical qubits or 14 million physical qubits. However, quantum resistance is a holistic approach, as the image must be indecipherable without the password but the image must also be quantum resistant from visual heuristic algos that attempt to coercively reconstruct the image back together.
 
-Important quantum-resistant method metrics have been listed below, showing infeasibility of quantum brute-forcing to decipher image using visual heuristic algos:
+Important quantum-resistant method metrics have been listed below, showing infeasibility of quantum brute-forcing to decipher image using visual heuristic algos using an available web [demo](https://demos.matthewbenchimol.com/ScyWeb/ScyWebImageTester.html):
 ![Proof of Quantum](https://raw.githubusercontent.com/mdbench/ScyWeb/master/Screenshot-2026-04-02-2.12.47-PM.png)
 
 ### Ultra Quantum-resistant method
