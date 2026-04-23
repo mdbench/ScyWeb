@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemtale Log Viewer</title>
+    <style>
+        :root {
+            --bg-color: #0f111d;
+            --accent-purple: #a855f7;
+            --card-bg: #1a1c2e;
+            --text-white: #ffffff;
+            --text-dim: #94a3b8;
+            --border-color: #2e3148;
+            --status-normal: #064e3b;
+            --status-abnormal: #450a0a;
+        }
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-white);
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 20px;
+            min-height: calc(100vh - 50px);
+            overflow-x: hidden;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .dashboard-controls {
+            background: var(--card-bg);
+            padding: 25px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        }
+        .btn {
+            background: var(--accent-purple);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            transition: 0.2s;
+        }
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--accent-purple);
+            color: var(--accent-purple);
+        }
+        .status-tag {
+            font-size: 0.7rem;
+            padding: 4px 8px;
+            border-radius: 4px;
+            margin-left: 10px;
+            text-transform: uppercase;
+        }
+        .status-ready { background: #064e3b; color: #34d399; }
+        .status-locked { background: #450a0a; color: #f87171; }
+        .entry-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 12px;
+        }
+        .summary-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            cursor: pointer;
+            text-align: center;
+            transition: transform 0.2s;
+        }
+        .summary-card:hover { transform: translateY(-3px); border-color: var(--accent-purple); }
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.95);
+            z-index: 1000;
+            overflow-y: auto;
+        }
+        .modal-content {
+            background: var(--card-bg);
+            max-width: 900px;
+            margin: 40px auto;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            padding: 30px;
+        }
+        .column {
+            background: #00000044;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+        }
+        .content-preview {
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            color: #cbd5e1;
+            white-space: pre-wrap;
+            word-break: break-all;
+            line-height: 1.4;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        #reauthOverlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15,17,29,0.8);
+            z-index: 9999;
+            cursor: pointer;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+        }
+    </style>
+</head>
+<body id="appBody">
+
+<div id="reauthOverlay">
+    <div style="text-align:center;">
+        <h2 style="color:var(--accent-purple)">Session Locked</h2>
+        <p>Click anywhere to re-authorize folder access.</p>
+    </div>
+</div>
+
+<div class="container">
+    <div class="dashboard-controls">
+        <div>
+            <h1 style="margin:0; font-size: 1.4rem;">Gemtale <span style="font-weight: 200;">[Log Viewer]</span></h1>
+            <div id="fileInfo" style="margin-top:8px; font-size: 0.85rem; color: var(--text-dim);">Connecting...</div>
+        </div>
+        <div style="display:flex; gap: 12px;">
+            <button class="btn btn-outline" onclick="selectFolder(event)">Select Folder</button>
+        </div>
+    </div>
+
+    <div id="gridContainer" class="entry-grid"></div>
+</div>
+
+<div id="modal" class="modal-overlay" onclick="closeModal()">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <h2 id="modalTitle" style="color: var(--accent-purple); margin-top:0;"></h2>
+        <div id="modalEquiv" style="padding: 10px; border-radius: 6px; margin-bottom: 20px; font-weight: bold; text-align: center; letter-spacing: 1px;"></div>
+        
+        <div id="modalGrid" style="display:grid; grid-template-columns: 1fr; gap: 15px;">
+            <!-- Columns injected here -->
+        </div>
+
+        <button class="btn" style="margin-top:20px; width:100%; justify-content: center;" onclick="closeModal()">Close View</button>
+    </div>
+</div>
+
+<script>
+    const TARGET_FILE = "gemtale_messenger_log.txt";
+    let dirHandle = null;
+    let globalSets = [];
+    let db = null;
+
+    const initDB = () => {
+        return new Promise((resolve) => {
+            const request = indexedDB.open("LogMatrixDB", 2);
+            request.onupgradeneeded = (e) => {
+                const database = e.target.result;
+                if (!database.objectStoreNames.contains("Config")) {
+                    database.createObjectStore("Config");
+                }
+            };
+            request.onsuccess = (e) => {
+                db = e.target.result;
+                resolve(db);
+            };
+        });
+    };
+
+    window.addEventListener('DOMContentLoaded', async () => {
+        await initDB();
+        const tx = db.transaction("Config", "readonly");
+        const req = tx.objectStore("Config").get("folder");
+        req.onsuccess = async () => {
+            dirHandle = req.result;
+            if (dirHandle) {
+                if (await dirHandle.queryPermission() === 'granted') {
+                    syncFile();
+                } else {
+                    document.getElementById('reauthOverlay').style.display = 'flex';
+                    document.getElementById('fileInfo').innerHTML = `Folder: <b>${dirHandle.name}</b> <span class="status-tag status-locked">Locked</span>`;
+                }
+            } else {
+                document.getElementById('fileInfo').innerHTML = "No folder linked. Select Folder to start.";
+            }
+        };
+    });
+
+    document.getElementById('reauthOverlay').addEventListener('mousedown', async () => {
+        await syncFile();
+        document.getElementById('reauthOverlay').style.display = 'none';
+    });
+
+    async function selectFolder(e) {
+        if(e) e.stopPropagation();
+        try {
+            dirHandle = await window.showDirectoryPicker();
+            const tx = db.transaction("Config", "readwrite");
+            tx.objectStore("Config").put(dirHandle, "folder");
+            syncFile();
+        } catch (err) {
+            console.warn("Folder selection cancelled.");
+        }
+    }
+
+    async function syncFile() {
+        if (!dirHandle) return;
+        if (await dirHandle.requestPermission({mode: 'read'}) === 'granted') {
+            try {
+                const fHandle = await dirHandle.getFileHandle(TARGET_FILE);
+                const file = await fHandle.getFile();
+                parse(await file.text());
+                document.getElementById('fileInfo').innerHTML = `Folder: <b>${dirHandle.name}</b> <span class="status-tag status-ready">Ready</span>`;
+            } catch (err) {
+                document.getElementById('fileInfo').innerHTML = `<span style="color:#f87171">Error: ${TARGET_FILE} not found in folder.</span>`;
+            }
+        }
+    }
+
+    function decode(hex) {
+        if (!hex) return "";
+        // Treat 'g' as '0' to maintain string alignment, then remove whitespace
+        let clean = hex.replace(/g/g, '0').replace(/\s/g, '');
+        let str = '';
+        for (let i = 0; i < clean.length; i += 2) {
+            let code = parseInt(clean.substr(i, 2), 16);
+            if (!isNaN(code)) {
+                // Filter for printable ASCII or basic whitespace
+                if ((code >= 32 && code <= 126) || code === 10 || code === 13) {
+                    str += String.fromCharCode(code);
+                } else {
+                    str += ''; // Placeholder for encrypted/binary bytes
+                }
+            }
+        }
+        return str;
+    }
+
+    function parse(input) {
+        const grid = document.getElementById('gridContainer');
+        grid.innerHTML = '';
+        globalSets = [];
+
+        // Updated Regex for: [START OF ENTRY ID] [+] [STATUS1] HEX1 [!] [STATUS2] <sof> HEX2
+        const entryRegex = /\[START OF ENTRY (\d+)\]\s*\[\+\]\s*\[(\w+)\]\s*([0-9a-fA-F\s\w]+?)\s*\[!\]\s*\[(\w+)\]\s*<sof>([^\[]+)/g;
+        
+        let match;
+        while ((match = entryRegex.exec(input)) !== null) {
+            const [full, id, stat1, hex1, stat2, hex2] = match;
+            
+            const set = {
+                id: id,
+                status1: stat1,
+                payload1: hex1.trim(),
+                status2: stat2,
+                payload2: hex2.trim()
+            };
+            
+            globalSets.push(set);
+
+            const card = document.createElement('div');
+            card.className = 'summary-card';
+            if (stat2 === "ABNORMAL") card.style.borderTop = "4px solid #f87171";
+            else card.style.borderTop = "4px solid #34d399";
+            
+            card.onclick = (e) => {
+                e.stopPropagation();
+                openModal(globalSets.length - 1);
+            };
+            
+            card.innerHTML = `
+                <div style="color:var(--accent-purple); font-weight:800; font-size: 1.1rem;">ENTRY #${id}</div>
+                <div style="font-size:0.7rem; color:var(--text-dim); margin-top:5px;">${stat2}</div>
+            `;
+            grid.appendChild(card);
+        }
+    }
+
+    function openModal(idx) {
+        const set = globalSets[idx];
+        const grid = document.getElementById('modalGrid');
+        const equiv = document.getElementById('modalEquiv');
+        
+        document.getElementById('modalTitle').innerText = `Log Entry Analysis #${set.id}`;
+        grid.innerHTML = '';
+        
+        const isAbnormal = (set.status2 === "ABNORMAL");
+        equiv.innerText = isAbnormal ? "SYSTEM STATUS: ABNORMAL" : "SYSTEM STATUS: NORMAL";
+        equiv.style.background = isAbnormal ? "var(--status-abnormal)" : "var(--status-normal)";
+        equiv.style.color = isAbnormal ? "#f87171" : "#34d399";
+
+        grid.innerHTML = `
+            <div class="column">
+                <h3 style="font-size:0.75rem; color:var(--accent-purple); margin-top:0;">PRIMARY DECODE [${set.status1}]</h3>
+                <div class="content-preview">${decode(set.payload1)}</div>
+            </div>
+            <div class="column">
+                <h3 style="font-size:0.75rem; color:var(--accent-purple); margin-top:0;">EXTRACTED DECODE [${set.status2}]</h3>
+                <div class="content-preview">${decode(set.payload2)}</div>
+            </div>
+        `;
+        
+        document.getElementById('modal').style.display = 'block';
+    }
+
+    function closeModal() {
+        document.getElementById('modal').style.display = 'none';
+    }
+
+    // Auto-refresh loop
+    setInterval(async () => {
+        if (dirHandle && await dirHandle.queryPermission() === 'granted') {
+            syncFile();
+        }
+    }, 5000);
+</script>
+
+</body>
+</html>

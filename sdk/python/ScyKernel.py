@@ -63,6 +63,20 @@ class ScyKernel:
         mixed ^= (mixed >> 16)
         key_byte = mixed & 0xFF
         return chr(ord(c) ^ key_byte)
+    # Crypt byte sanitizer to prevent null collisions
+    def sanitize_and_xor(self, raw_char, reverse=False):
+        a = 123
+        c = 45
+        val = ord(raw_char)
+        if reverse:
+            val_adjusted = val - 1
+            inv_a = 179
+            return chr(((val_adjusted - c) * inv_a) % 256)
+        else:
+            transformed = (val * a + c) % 256
+            return chr(transformed + 1)
+    def sanitize_and_xor(self, raw_char, reverse=False):
+        return raw_char
     # Lightweight CRC-32 for PNG Chunk Compliance
     def compute_crc(self, buf):
         crc = 0xFFFFFFFF
@@ -84,9 +98,13 @@ class ScyKernel:
                 offset=15+(y*self.canvas_size+x)*3
                 file.seek(offset)
                 for i,c in enumerate(value):
-                    pixel=bytearray(file.read(3))
+                    raw_data = file.read(3)
+                    if len(raw_data) < 3:
+                        break
+                    pixel=bytearray(raw_data)
                     secure_char=self.crypt_byte(c,password,i)
-                    pixel[0]=ord(secure_char)&0xFF
+                    sanitized_char = self.sanitize_and_xor(secure_char, reverse=False)
+                    pixel[0]=ord(sanitized_char)&0xFF
                     file.seek(-3,1)
                     file.write(pixel)
                     file.seek(file.tell())
@@ -96,6 +114,7 @@ class ScyKernel:
         index = self.derive_index(key, password)
         cur_d = self.h_val + (index * 1600)
         x, y = self.d2xy(self.canvas_size, cur_d)
+        terminator_count = 0
         try:
             with open(self.file_path, "rb") as file:
                 offset = 15 + (y * self.canvas_size + x) * 3
@@ -104,10 +123,17 @@ class ScyKernel:
                 i = 0
                 while True:
                     pixel = file.read(3)
-                    if not pixel or pixel[0] == 0:
+                    if not pixel: break
+                    if pixel == b"\x00\x00\x00":
+                        terminator_count += 1
+                    else:
+                        terminator_count = 0
+                    restored_char = self.sanitize_and_xor(chr(pixel[0]), reverse=True)
+                    result.append(self.crypt_byte(restored_char, password, i))
+                    if terminator_count >= 5:
+                        #print(f"PPM Termination occurred at pixel {i}.")
+                        result = result[:-5]
                         break
-                    scrambled = chr(pixel[0])
-                    result.append(self.crypt_byte(scrambled, password, i))
                     i += 1
                 return "".join(result)
         except IOError:
@@ -125,7 +151,8 @@ class ScyKernel:
             pixel_idx = ((y * self.canvas_size) + (x + i)) * 3
             if pixel_idx + 2 < len(self.db_buffer):
                 secure_char = self.crypt_byte(value[i], key_password, i)
-                self.db_buffer[pixel_idx] = ord(secure_char) & 0xFF
+                sanitized_char = self.sanitize_and_xor(secure_char, reverse=False)
+                self.db_buffer[pixel_idx] = ord(sanitized_char) & 0xFF
         term_idx = ((y * self.canvas_size) + (x + len(value))) * 3
         if term_idx + 2 < len(self.db_buffer):
             self.db_buffer[term_idx] = 0
@@ -138,13 +165,23 @@ class ScyKernel:
         cur_d = self.h_val + (index * 1600)
         x, y = self.d2xy(self.canvas_size, cur_d)
         result = []
+        terminator_count = 0
         i = 0
         while True:
             pixel_idx = ((y * self.canvas_size) + (x + i)) * 3
-            if pixel_idx + 2 >= len(self.db_buffer) or self.db_buffer[pixel_idx] == 0:
+            if pixel_idx + 2 >= len(self.db_buffer):
                 break
-            scrambled = chr(self.db_buffer[pixel_idx])
-            result.append(self.crypt_byte(scrambled, key_password, i))
+            r, g, b = self.db_buffer[pixel_idx : pixel_idx + 3]
+            if r == 0 and g == 0 and b == 0:
+                terminator_count += 1
+            else:
+                terminator_count = 0
+            restored_char = self.sanitize_and_xor(chr(self.db_buffer[pixel_idx]), reverse=True)
+            result.append(self.crypt_byte(restored_char, key_password, i))
+            if terminator_count >= 5:
+                #print(f"PNG Termination occurred at pixel {i}.")
+                result = result[:-5]
+                break
             i += 1
         return "".join(result)
     # DB sync functions for easier DB handling

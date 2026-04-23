@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemtale Log Viewer</title>
+    <style>
+        :root { --bg-color: #0f111d; --accent-purple: #a855f7; --card-bg: #1a1c2e; --text-white: #ffffff; --text-dim: #94a3b8; --border-color: #2e3148; }
+        body { background-color: var(--bg-color); color: var(--text-white); font-family: 'Inter', sans-serif; margin: 0; padding: 20px; min-height: calc(100vh - 50px); overflow-x: hidden; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .dashboard-controls { background: var(--card-bg); padding: 25px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+        .btn { background: var(--accent-purple); color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; cursor: pointer; display: inline-flex; align-items: center; transition: 0.2s; }
+        .btn-outline { background: transparent; border: 1px solid var(--accent-purple); color: var(--accent-purple); }
+        .status-tag { font-size: 0.7rem; padding: 4px 8px; border-radius: 4px; margin-left: 10px; text-transform: uppercase; }
+        .status-ready { background: #064e3b; color: #34d399; }
+        .status-locked { background: #450a0a; color: #f87171; }
+        .entry-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+        .summary-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; cursor: pointer; text-align: center; }
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; overflow-y: auto; }
+        .modal-content { background: var(--card-bg); max-width: 95%; margin: 20px auto; border-radius: 12px; border: 1px solid var(--border-color); padding: 30px; }
+        .column { background: #00000044; padding: 15px; border-radius: 6px; border: 1px solid var(--border-color); margin-bottom: 10px;}
+        .content-preview { font-family: 'Courier New', monospace; font-size: 0.75rem; color: #cbd5e1; white-space: pre-wrap; word-break: break-all; }
+        
+        /* Persistent Re-auth Overlay */
+        #reauthOverlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15,17,29,0.8); z-index: 9999; cursor: pointer; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+    </style>
+</head>
+<body id="appBody">
+    <div id="reauthOverlay">
+        <div style="text-align:center;">
+            <h2 style="color:var(--accent-purple)">Session Locked</h2>
+            <p>Click anywhere to re-authorize folder access.</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="dashboard-controls">
+            <div>
+                <h1 style="margin:0; font-size: 1.4rem;">Gemtale <span style="font-weight: 200;">[Log Viewer]</span></h1>
+                <div id="fileInfo" style="margin-top:8px; font-size: 0.85rem; color: var(--text-dim);">Connecting...</div>
+            </div>
+            <div style="display:flex; gap: 12px;">
+                <button class="btn btn-outline" onclick="selectFolder(event)">Select Folder</button>
+            </div>
+        </div>
+        <div id="gridContainer" class="entry-grid"></div>
+    </div>
+
+    <div id="modal" class="modal-overlay" onclick="closeModal()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <h2 id="modalTitle" style="color: var(--accent-purple);"></h2>
+            <div id="modalEquiv" style="padding: 10px; border-radius: 6px; margin-bottom: 20px; font-weight: bold; text-align: center;"></div>
+            <div id="modalGrid" style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;"></div>
+            <button class="btn" style="margin-top:20px; width:100%; justify-content: center;" onclick="closeModal()">Close View</button>
+        </div>
+    </div>
+
+    <script>
+        const TARGET_FILE = "gemtale_log.txt";
+        let dirHandle = null;
+        let globalSets = [];
+        let db = null;
+        var cipherTable = [];
+
+        const initDB = () => {
+            return new Promise((resolve) => {
+                // Version bump to 2 forces store creation
+                const request = indexedDB.open("LogMatrixDB", 2);
+                request.onupgradeneeded = (e) => {
+                    const database = e.target.result;
+                    if (!database.objectStoreNames.contains("Config")) {
+                        database.createObjectStore("Config");
+                    }
+                };
+                request.onsuccess = (e) => {
+                    db = e.target.result;
+                    resolve(db);
+                };
+            });
+        };
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            await initDB();
+            const tx = db.transaction("Config", "readonly");
+            const req = tx.objectStore("Config").get("folder");
+            req.onsuccess = async () => {
+                dirHandle = req.result;
+                if (dirHandle) {
+                    if (await dirHandle.queryPermission() === 'granted') {
+                        syncFile();
+                    } else {
+                        document.getElementById('reauthOverlay').style.display = 'flex';
+                        document.getElementById('fileInfo').innerHTML = `Folder: <b>${dirHandle.name}</b> <span class="status-tag status-locked">Locked</span>`;
+                    }
+                } else {
+                    document.getElementById('fileInfo').innerHTML = "No folder linked. Select Folder to start.";
+                }
+            };
+        });
+
+        document.getElementById('reauthOverlay').addEventListener('mousedown', async () => {
+            await syncFile();
+            document.getElementById('reauthOverlay').style.display = 'none';
+        });
+
+        async function selectFolder(e) {
+            if(e) e.stopPropagation();
+            dirHandle = await window.showDirectoryPicker();
+            const tx = db.transaction("Config", "readwrite");
+            tx.objectStore("Config").put(dirHandle, "folder");
+            syncFile();
+        }
+
+        async function syncFile(e) {
+            if(e) e.stopPropagation();
+            if (!dirHandle) return;
+
+            if (await dirHandle.requestPermission({mode: 'read'}) === 'granted') {
+                try {
+                    const fHandle = await dirHandle.getFileHandle(TARGET_FILE);
+                    const file = await fHandle.getFile();
+                    parse(await file.text());
+                    document.getElementById('fileInfo').innerHTML = `Folder: <b>${dirHandle.name}</b> <span class="status-tag status-ready">Ready</span>`;
+                } catch (err) {
+                    document.getElementById('fileInfo').innerHTML = `<span style="color:red">Error: ${TARGET_FILE} not found.</span>`;
+                }
+            }
+        }
+
+        checkFileSizeAndRefresh();
+        async function checkFileSizeAndRefresh() {
+            if (typeof dirHandle === 'undefined' || !dirHandle) {
+                setTimeout(checkFileSizeAndRefresh, 1000);
+                return;
+            }
+            try {
+                if (await dirHandle.queryPermission() === 'granted') {
+                    console.info("Running refresh protocol...");
+                    const fHandle = await dirHandle.getFileHandle(TARGET_FILE);
+                    const file = await fHandle.getFile();
+                    const currentSize = file.size.toString();
+                    const storedSize = localStorage.getItem('lastKnownSize');
+                    if (storedSize === null) {
+                        localStorage.setItem('lastKnownSize', currentSize);
+                    } else if (storedSize !== currentSize) {
+                        localStorage.setItem('lastKnownSize', currentSize);
+                        window.location.reload();
+                        return; // Stop execution during reload
+                    }
+                }
+            } catch (err) {
+                console.warn("Refresh could not occur: File likely busy or inaccessible.");
+            }
+            setTimeout(checkFileSizeAndRefresh, 2000);
+        }
+
+        function parse(input) {
+            const grid = document.getElementById('gridContainer');
+            grid.innerHTML = ''; globalSets = [];
+            const matches = [...input.matchAll(/<\[\$\]STRING ENTRY>(.*?)<\/END OF STRING ENTRY>/gs)];
+            for (let i = 0; i < matches.length; i += 3) {
+                const set = { id: Math.floor(i/3)+1, summary: matches[i]?.[1]||'', png: matches[i+1]?.[1]||'', ppm: matches[i+2]?.[1]||'' };
+                globalSets.push(set);
+                const card = document.createElement('div');
+                card.className = 'summary-card';
+                card.onclick = (e) => { e.stopPropagation(); openModal(set.id - 1); };
+                card.innerHTML = `<div style="color:var(--accent-purple); font-weight:800">SET #${set.id}</div>`;
+                grid.appendChild(card);
+            }
+        }
+
+        function decode(hex) {
+            let clean = hex.replace(/g/g, '0').trim();
+            let str = '';
+            for (let i = 0; i < clean.length; i += 2) {
+                let code = parseInt(clean.substr(i, 2), 16);
+                if (!isNaN(code)) str += String.fromCharCode(code);
+            }
+            return str;
+        }
+
+        function openModal(idx) {
+            const set = globalSets[idx];
+            const grid = document.getElementById('modalGrid');
+            const equiv = document.getElementById('modalEquiv');
+            document.getElementById('modalTitle').innerText = `Set #${set.id}`;
+            grid.innerHTML = '';
+            const match = (set.summary === set.ppm);
+            equiv.innerText = match ? "✓ MATCH" : "⚠ MISMATCH";
+            equiv.style.background = match ? "#064e3b" : "#450a0a";
+            ['summary', 'png', 'ppm'].forEach(l => {
+                grid.innerHTML += `<div class="column"><h3 style="font-size:0.7rem;">${l}</h3><div class="content-preview">${decode(set[l])}</div></div>`;
+            });
+            document.getElementById('modal').style.display = 'block';
+        }
+
+        function closeModal() { document.getElementById('modal').style.display = 'none'; }
+
+    </script>
+</body>
+</html>

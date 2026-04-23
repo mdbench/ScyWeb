@@ -5,12 +5,13 @@ sdk/**/*.scy
 sdk/**/*.log
 data/
 # Gemtale Local Persistence
-gemtale/models/
-gemtale/URLs.txt
-gemtale/*.ppm
-gemtale/*.png
-gemtale/*.safetensors
-gemtale/*.bin
-gemtale/*.pt
-gemtale/*.pth
-gemtale/*.gguf
+gemtale/gemtale_log.txt
+gemtale/hf_token.txt
+gemtale/venv/
+gemtale/venv-windows/
+gemtale/venv-linux/
+gemtale/venv-mac/
+gemtale/gemtale_data/*
+!gemtale/gemtale_data/*.ppm
+!gemtale/gemtale_data/*.png
+gemtale/gemtale_data/models/

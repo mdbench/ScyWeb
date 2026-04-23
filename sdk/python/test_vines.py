@@ -8,6 +8,7 @@ def run_test():
     path_png = os.path.join(db_dir, "py_vine.png")
     test_key = "User"
     test_value = "Amanda"
+    #test_value = "<bos> " + ("STRESS_TEST_DATA_" * 280) + " <eos>"
     password = "ScyWeb_Global_Secret_2026"
     if not os.path.exists(db_dir):
         os.makedirs(db_dir)
