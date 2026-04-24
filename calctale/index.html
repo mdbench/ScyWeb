@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CalcTale</title>
+    <style>
+        :root { 
+            --neon: #66fcf1; 
+            --dark: #0b0c10; 
+            --slate: #1f2833; 
+            --text: #c5c6c7; 
+            --gold: #f2af29;
+            --border: #45a29e;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            background-color: var(--dark);
+            color: var(--text);
+            font-family: 'Times New Roman', serif;
+            overflow: hidden;
+        }
+
+        /* --- Master Layout --- */
+        #dashboard-container {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* --- Sidebar Navigation --- */
+        #sidebar {
+            width: 300px;
+            background: var(--slate);
+            border-right: 2px solid var(--neon);
+            display: flex;
+            flex-direction: column;
+            box-shadow: 10px 0 30px rgba(0,0,0,0.5);
+            z-index: 100;
+        }
+
+        .sidebar-header {
+            padding: 30px 20px;
+            text-align: center;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .sidebar-header h1 {
+            margin: 0;
+            color: var(--neon);
+            font-variant: small-caps;
+            letter-spacing: 3px;
+            text-shadow: 0 0 15px var(--neon);
+        }
+
+        .nav-section {
+            padding: 20px;
+        }
+
+        .nav-section h3 {
+            color: var(--gold);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 15px;
+            border-left: 3px solid var(--gold);
+            padding-left: 10px;
+        }
+
+        .nav-item {
+            padding: 12px 15px;
+            margin-bottom: 8px;
+            background: rgba(0,0,0,0.2);
+            border: 1px solid transparent;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: block;
+            color: var(--text);
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .nav-item:hover {
+            background: rgba(102, 252, 241, 0.1);
+            border-color: var(--neon);
+            color: var(--neon);
+            transform: translateX(5px);
+        }
+
+        .nav-item.active {
+            background: var(--neon);
+            color: var(--dark);
+            font-weight: bold;
+        }
+
+        /* --- Main Content Area (iFrame) --- */
+        #content-window {
+            flex-grow: 1;
+            background: #000;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #app-viewport {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: #000;
+        }
+
+        /* --- Footer/Status Bar --- */
+        #status-bar {
+            height: 30px;
+            background: var(--dark);
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            font-family: monospace;
+            font-size: 11px;
+            color: var(--border);
+        }
+
+        .status-dot {
+            height: 8px;
+            width: 8px;
+            background: var(--neon);
+            border-radius: 50%;
+            margin-right: 10px;
+            box-shadow: 0 0 5px var(--neon);
+        }
+    </style>
+</head>
+<body>
+
+<div id="dashboard-container">
+    <nav id="sidebar">
+        <div class="sidebar-header">
+            <h1>CalcTale</h1>
+            <small style="color:var(--border)">Calculations & Research OS</small>
+        </div>
+
+        <div class="nav-section">
+            <h3>Basics</h3>
+            <div id="basics-nav"></div>
+        </div>
+
+        <div class="nav-section">
+            <h3>Advanced Physics</h3>
+            <div id="physics-nav"></div>
+        </div>
+
+        <div class="nav-section">
+            <h3>Engineering</h3>
+            <div id="eng-nav"></div>
+        </div>
+
+        <!--<div class="nav-section" style="margin-top:auto">
+            <h3>System Tools</h3>
+            <a href="#" class="nav-item" onclick="loadPage('')"></a>
+        </div>-->
+    </nav>
+
+    <main id="content-window">
+        <iframe id="app-viewport" name="app-viewport" src="about:blank"></iframe>
+        
+        <footer id="status-bar">
+            <div class="status-dot"></div>
+            System: Active
+        </footer>
+    </main>
+</div>
+
+<script>
+    // --- 1. The Unified Registry ---
+    // Update these paths to match your actual file names
+    const appRegistry = {
+        basics: [
+            { label: "Calculator Creator", path: "calcmaker.html" },
+            { label: "Calculator", path: "calc.html" },
+        ],
+        physics: [
+            { label: "Integrative Analysis", path: "physics.html" }
+        ],
+        engineer: [
+            { label: "Integrative Analysis", path: "engineer.html" }
+        ]
+    };
+
+    // --- 2. Dashboard Logic ---
+    function initDashboard() {
+        const basics = document.getElementById('basics-nav');
+        const physNav = document.getElementById('physics-nav');
+        const engNav = document.getElementById('eng-nav');
+        const mathNav = document.getElementById('math-nav');
+
+        // Render Basics Links
+        appRegistry.basics.forEach(app => {
+            const btn = createNavItem(app);
+            basics.appendChild(btn);
+        });
+
+        // Render Physics Links
+        appRegistry.physics.forEach(app => {
+            const btn = createNavItem(app);
+            physNav.appendChild(btn);
+        });
+
+        // Render Engineer Links
+        appRegistry.engineer.forEach(app => {
+            const btn = createNavItem(app);
+            engNav.appendChild(btn);
+        });
+
+        // Load Default Page
+        if (appRegistry.basics.length > 0) {
+            loadPage(appRegistry.basics[0].path);
+        }
+    }
+
+    function createNavItem(app) {
+        const a = document.createElement('a');
+        a.className = 'nav-item';
+        a.textContent = app.label;
+        a.onclick = (e) => {
+            // Remove active class from all
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            // Add to current
+            a.classList.add('active');
+            loadPage(app.path);
+        };
+        return a;
+    }
+
+    function loadPage(path) {
+        const iframe = document.getElementById('app-viewport');
+        iframe.src = path;
+        console.log(`CalcTale Dashboard: Loading ${path}`);
+    }
+
+    // Launch
+    window.onload = initDashboard;
+</script>
+
+</body>
+</html>

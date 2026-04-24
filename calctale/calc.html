@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CalcTale | An Image Calculator</title>
+    <style>
+        body {
+            font-family: 'Times New Roman', Times, serif;
+            background-color: #0b0c10;
+            color: #c5c6c7;
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #calculator-interface {
+            width: 580px;
+            background: #1f2833;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            border-right: 3px solid #66fcf1;
+            box-shadow: 5px 0 25px rgba(0,212,255,0.3);
+            z-index: 10;
+        }
+
+        h1.title {
+            text-align: center;
+            margin-top: 0;
+            color: #66fcf1;
+            font-variant: small-caps;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px #66fcf1;
+        }
+
+        #calctale-display {
+            width: 100%;
+            height: 70px;
+            background-color: #0b0c10;
+            border: 2px solid #45a29e;
+            color: #66fcf1;
+            font-size: 36px;
+            text-align: right;
+            padding: 15px;
+            margin-bottom: 20px;
+            box-sizing: border-box;
+            border-radius: 4px;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        .button-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 12px;
+            flex-grow: 1;
+        }
+
+        button {
+            padding: 18px 5px;
+            font-size: 18px;
+            background: #45a29e;
+            color: #0b0c10;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+        button:hover:not(:disabled) { background: #66fcf1; transform: scale(1.05); }
+        button:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        .num-btn { background: #c5c6c7; color: #0b0c10; }
+        .op-btn { background: #45a29e; color: white; }
+        .sci-btn { background: #1f2833; color: #66fcf1; border: 1px solid #45a29e; font-size: 15px; }
+        .eq-btn { background: #66fcf1; grid-column: span 2; font-size: 24px; color: #0b0c10;}
+        .clear-btn { background: #ff4c4c; color: white; }
+
+        #mzmo-visualizer {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: #0b0c10;
+            padding: 20px;
+            position: relative;
+        }
+
+        #mzmo-canvas {
+            max-width: 100%;
+            max-height: 80vh;
+            border: 1px solid #45a29e;
+            display: none; /* Hidden until upload */
+        }
+
+        #upload-zone {
+            border: 2px dashed #45a29e;
+            padding: 40px;
+            text-align: center;
+            border-radius: 10px;
+        }
+
+        #system-status {
+            position: absolute;
+            bottom: 10px;
+            right: 15px;
+            font-size: 12px;
+            color: #45a29e;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+
+<div id="calculator-interface">
+    <input type="text" id="calctale-display" readonly value="UPLOAD MAP">
+    
+    <div class="button-grid">
+        <button disabled class="sci-btn" onclick="sciOp('sin')">sin</button>
+        <button disabled class="sci-btn" onclick="sciOp('cos')">cos</button>
+        <button disabled class="sci-btn" onclick="sciOp('tan')">tan</button>
+        <button disabled class="clear-btn" onclick="clearAll()">C</button>
+        <button disabled class="op-btn" onclick="pressOperator('/')">/</button>
+        
+        <button disabled class="sci-btn" onclick="sciOp('log')">log</button>
+        <button disabled class="num-btn" onclick="pressNumber('7')">7</button>
+        <button disabled class="num-btn" onclick="pressNumber('8')">8</button>
+        <button disabled class="num-btn" onclick="pressNumber('9')">9</button>
+        <button disabled class="op-btn" onclick="pressOperator('*')">*</button>
+        
+        <button disabled class="sci-btn" onclick="sciOp('sqrt')">√</button>
+        <button disabled class="num-btn" onclick="pressNumber('4')">4</button>
+        <button disabled class="num-btn" onclick="pressNumber('5')">5</button>
+        <button disabled class="num-btn" onclick="pressNumber('6')">6</button>
+        <button disabled class="op-btn" onclick="pressOperator('-')">-</button>
+        
+        <button disabled class="sci-btn" onclick="pressNumber('(')">(</button>
+        <button disabled class="num-btn" onclick="pressNumber('1')">1</button>
+        <button disabled class="num-btn" onclick="pressNumber('2')">2</button>
+        <button disabled class="num-btn" onclick="pressNumber('3')">3</button>
+        <button disabled class="op-btn" onclick="pressOperator('+')">+</button>
+        
+        <button disabled class="sci-btn" onclick="pressNumber(')')">)</button>
+        <button disabled class="num-btn" onclick="pressNumber('0')">0</button>
+        <button disabled class="num-btn" onclick="pressNumber('.')">.</button>
+        <button disabled class="eq-btn" onclick="executeCalcTale()">=</button>
+    </div>
+</div>
+
+<div id="mzmo-visualizer">
+    <div id="upload-zone">
+        <h3>Connect MZMO Legend</h3>
+        <p>Select the 4000x4000 CalcTale Map to begin.</p>
+        <input type="file" id="map-upload" accept="image/png">
+    </div>
+    <canvas id="mzmo-canvas"></canvas>
+    <div id="system-status">Status: <span id="map-status">No Map Detected</span></div>
+</div>
+
+<script>
+    const canvas = document.getElementById('mzmo-canvas');
+    const ctx = canvas.getContext('2d');
+    const display = document.getElementById('calctale-display');
+    const statusText = document.getElementById('map-status');
+    const uploadInput = document.getElementById('map-upload');
+    const buttons = document.querySelectorAll('button');
+
+    const MZMO_SIZE = 4000;
+    const TOTAL_POINTS = MZMO_SIZE * MZMO_SIZE;
+    canvas.width = MZMO_SIZE;
+    canvas.height = MZMO_SIZE;
+
+    let precalculatedData = null;
+    let currentExpression = "";
+    let isErrorState = false;
+
+    // --- Handle File Upload ---
+    uploadInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        statusText.textContent = "Syncing MZMO Chains...";
+        const reader = new FileReader();
+
+        reader.onload = function(event) {
+            const img = new Image();
+            img.onload = function() {
+                // Draw to canvas for data extraction
+                ctx.drawImage(img, 0, 0);
+                try {
+                    precalculatedData = ctx.getImageData(0, 0, MZMO_SIZE, MZMO_SIZE).data;
+                    document.getElementById('upload-zone').style.display = 'none';
+                    canvas.style.display = 'block';
+                    statusText.textContent = "Map Active - Retrieval Ready";
+                    statusText.style.color = "#66fcf1";
+                    display.value = "0";
+                    // Enable Calculator
+                    buttons.forEach(btn => btn.disabled = false);
+                } catch (err) {
+                    statusText.textContent = "Security Error: Use a local server.";
+                    statusText.style.color = "#ff4c4c";
+                }
+            };
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+
+    // --- Calculator Logic ---
+    function pressNumber(n) {
+        if(isErrorState) clearAll();
+        if(display.value === "0" && n !== ".") currentExpression = "";
+        currentExpression += n;
+        display.value = currentExpression;
+    }
+
+    function pressOperator(op) {
+        if(isErrorState) clearAll();
+        currentExpression += op;
+        display.value = currentExpression;
+    }
+
+    function sciOp(op) {
+        if(currentExpression === "") return;
+        currentExpression = `${op}(${currentExpression})`;
+        display.value = currentExpression;
+    }
+
+    function clearAll() {
+        currentExpression = "";
+        display.value = "0";
+        isErrorState = false;
+    }
+
+    function executeCalcTale() {
+        if (!precalculatedData) return;
+        try {
+            // PEMDAS Parsing
+            const rawSeed = eval(currentExpression.replace(/sin|cos|tan|log|sqrt/g, m => "Math." + m));
+            if (!isFinite(rawSeed)) throw new Error();
+
+            // Mapping to MZMO Coordinate via Morton index
+            let targetIndex = Math.round(rawSeed) + 5000000;
+            targetIndex = Math.max(0, Math.min(TOTAL_POINTS - 1, targetIndex));
+
+            const [x, y] = calculateMortonFromIndex(targetIndex);
+            
+            // Retrieval from Image Data
+            const offset = (y * MZMO_SIZE + x) * 4;
+            const r = precalculatedData[offset];
+            const g = precalculatedData[offset + 1];
+            const b = precalculatedData[offset + 2];
+
+            const retrieved = ((r << 16) | (g << 8) | b) - 5000000;
+            display.value = retrieved;
+            currentExpression = retrieved.toString();
+        } catch (e) {
+            display.value = "MAP ERROR";
+            isErrorState = true;
+        }
+    }
+
+    function calculateMortonFromIndex(index) {
+        let x = 0, y = 0;
+        for (let i = 0; i < 16; i++) {
+            x |= ((index >> (i * 2))     & 1) << i;
+            y |= ((index >> (i * 2 + 1)) & 1) << i;
+        }
+        return [x % MZMO_SIZE, y % MZMO_SIZE];
+    }
+</script>
+</body>
+</html>

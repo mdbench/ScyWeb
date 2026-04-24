@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CalcTale | Engineering Analysis</title>
+    <style>
+        :root { --neon: #66fcf1; --dark: #0b0c10; --slate: #1f2833; --gold: #f2af29; --border: #45a29e; --alert: #ff4d4d; }
+        body { font-family: 'Times New Roman', serif; background: var(--dark); color: #c5c6c7; margin: 0; padding: 20px; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        
+        /* Error-Transparent Overlay */
+        #fs-auth-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(11, 12, 16, 0.98); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; border: 4px solid var(--gold); box-sizing: border-box; transition: 0.3s; }
+        #fs-auth-overlay.error-state { border-color: var(--alert); background: rgba(40, 0, 0, 0.98); }
+        #fs-auth-overlay h1 { color: var(--gold); text-transform: uppercase; letter-spacing: 3px; margin-bottom: 10px; }
+        #fs-auth-overlay p { color: var(--neon); font-family: monospace; font-size: 14px; }
+        #overlay-error-log { margin-top: 20px; color: var(--alert); font-family: monospace; font-size: 12px; max-width: 80%; text-align: center; }
+
+        .main-layout { display: grid; grid-template-columns: 380px 1fr 380px; gap: 20px; flex-grow: 1; overflow: hidden; }
+        .panel { background: var(--slate); border: 1px solid var(--border); padding: 20px; border-radius: 4px; display: flex; flex-direction: column; overflow-y: auto; box-sizing: border-box; }
+        
+        h1 { color: var(--neon); text-align: center; font-variant: small-caps; margin: 0 0 15px 0; letter-spacing: 2px; }
+        h2 { color: var(--neon); font-size: 14px; margin-top: 0; text-transform: uppercase; letter-spacing: 1.5px; border-bottom: 1px solid rgba(102, 252, 241, 0.3); padding-bottom: 8px; }
+        label { display: block; font-size: 11px; margin: 12px 0 6px; color: var(--border); text-transform: uppercase; font-family: monospace; }
+        
+        select, input, textarea { width: 100%; background: #000; color: #fff; border: 1px solid #333; padding: 10px; box-sizing: border-box; font-family: monospace; font-size: 12px; }
+        .btn-teal { background: var(--neon); color: var(--dark); border: none; padding: 12px; font-weight: bold; cursor: pointer; margin-top: 15px; width: 100%; font-family: monospace; }
+        .btn-gold { background: var(--gold); color: var(--dark); border: none; padding: 12px; font-weight: bold; cursor: pointer; margin-top: 10px; width: 100%; font-family: monospace; }
+
+        #canvas-container { position: relative; background: #000; border: 1px solid var(--neon); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        canvas { max-width: 100%; max-height: 100%; image-rendering: pixelated; }
+        
+        #log-area { width: 100%; height: 250px; background: #000; color: #888; font-family: monospace; font-size: 11px; padding: 10px; box-sizing: border-box; overflow-y: auto; margin-top: 10px; border: 1px solid #222; }
+        .log-entry { border-bottom: 1px solid #222; padding: 4px 0; color: var(--border); }
+        #status-footer { display: flex; justify-content: space-between; padding: 5px 20px; border-top: 1px solid #222; font-family: monospace; font-size: 10px; color: #555; }
+    </style>
+</head>
+<body>
+
+<div id="fs-auth-overlay" onclick="mountSovereignSystem()">
+    <h1>System Initialization Required</h1>
+    <p>Click to mount File System & Initialize CalcTaleDB</p>
+    <div id="overlay-error-log"></div>
+</div>
+
+<div class="main-layout">
+    <div class="panel">
+        <h2>Data to MZMO</h2>
+        <p>Convert engineering data at IEEE 754 Double-Precision (64-bit) standards to a BCNN-styled MZMO Image Database to process that data faster with less compute.</p>
+        <label>Engineering Discipline</label>
+        <select id="disciplineSelection" onchange="updateInterfaceVariables()">
+            <option value="stress">Structural Stress (F/A)</option>
+            <option value="strain">Material Strain (dL/L)</option>
+        </select>
+        <div id="variableInputContainer"></div>
+        <button class="btn-teal" onclick="executeSingleCalculationBake()">Bake Single 64-Bit Token</button>
+        <button class="btn-gold" onclick="document.getElementById('bulk-file').click()">Process CSV Vector Batch</button>
+        <input type="file" id="bulk-file" style="display:none" onchange="processBatchEngineeringArray(event)">
+    </div>
+
+    <div id="canvas-container">
+        <canvas id="mzmoMatrix" width="4000" height="4000"></canvas>
+    </div>
+
+    <div class="panel">
+        <h2>Forensic Drift Audit</h2>
+        <div class="analysis-box">
+            <label>Baseline MZMO (V1)</label>
+            <input type="file" id="baselineMatrix" accept="image/png">
+            <label>Comparative MZMO (V2)</label>
+            <input type="file" id="comparativeMatrix" accept="image/png">
+            <button class="btn-teal" onclick="executeHighFrequencyDriftAnalysis()">Run 64-Bit Bit-Drift Audit</button>
+        </div>
+        <div id="log-area"></div>
+    </div>
+</div>
+
+<footer id="status-footer">
+    <div>State: 64-Bit Precision | File System Access API: Enabled</div>
+</footer>
+
+<script>
+    const DIM = 4000;
+    const canvas = document.getElementById('mzmoMatrix');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const logArea = document.getElementById('log-area');
+    const overlay = document.getElementById('fs-auth-overlay');
+    const overlayError = document.getElementById('overlay-error-log');
+    
+    let db = null;
+    let folderHandle = null;
+    let simCounter = 0;
+
+    function appendLog(msg, crit = false) {
+        const time = new Date().toLocaleTimeString();
+        logArea.insertAdjacentHTML('afterbegin', `<div class="log-entry" style="color:${crit?'#ff4d4d':''} !important;">[${time}] ${msg}</div>`);
+    }
+
+    async function mountSovereignSystem() {
+        try {
+            // 1. Force Clean DB Open with Upgrade Sequence
+            db = await new Promise((resolve, reject) => {
+                const request = indexedDB.open("CalcTaleDB", 1);
+                request.onupgradeneeded = (e) => {
+                    const d = e.target.result;
+                    if (!d.objectStoreNames.contains('folder_permissions')) d.createObjectStore('folder_permissions');
+                    if (!d.objectStoreNames.contains('drift_tests')) d.createObjectStore('drift_tests', {keyPath: 'id', autoIncrement: true});
+                    appendLog("DB Stores Created Successfully.");
+                };
+                request.onsuccess = (e) => resolve(e.target.result);
+                request.onerror = (e) => reject("IndexedDB Permission Denied: " + e.target.error);
+            });
+
+            // 2. Request Folder Handle (Browser UI Prompt)
+            folderHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+
+            // 3. Save Handle to DB
+            const tx = db.transaction(["folder_permissions"], "readwrite");
+            const store = tx.objectStore("folder_permissions");
+            await new Promise((res, rej) => {
+                const putReq = store.put(folderHandle, "active_project_directory");
+                putReq.onsuccess = res;
+                putReq.onerror = rej;
+            });
+
+            // 4. Success: Remove UI blocker
+            overlay.style.display = 'none';
+            appendLog("System Mounted. Engineering Grid Initialized.");
+            updateInterfaceVariables();
+        } catch (err) {
+            overlay.classList.add('error-state');
+            overlayError.innerText = "FATAL: " + err;
+            appendLog("FATAL ERROR: " + err, true);
+        }
+    }
+
+    function updateInterfaceVariables() {
+        const disc = document.getElementById('disciplineSelection').value;
+        const container = document.getElementById('variableInputContainer');
+        const fields = disc === 'stress' ? ["Force (N)", "Area (m²)"] : ["Deformation (m)", "Original Length (m)"];
+        container.innerHTML = fields.map((f, i) => `<label>${f}</label><input type="number" step="any" value="1.0" id="inp_${i}">`).join('');
+    }
+
+    function getMorton(n) {
+        let x = 0, y = 0;
+        for (let i = 0; i < 16; i++) {
+            x |= ((n >> (i * 2)) & 1) << i;
+            y |= ((n >> (i * 2 + 1)) & 1) << i;
+        }
+        return [(x % 2000) * 2, (y % 2000) * 2];
+    }
+
+    function bakeToken(data, val, x, y) {
+        const buf = new ArrayBuffer(8);
+        new DataView(buf).setFloat64(0, val, false);
+        const bytes = new Uint8Array(buf);
+        const p = (y * DIM + x) * 4;
+        const p2 = (y * DIM + (x + 1)) * 4;
+        const p3 = ((y + 1) * DIM + x) * 4;
+        
+        // Pixel A, B, C store the 8 bytes of the double
+        data[p]=bytes[0]; data[p+1]=bytes[1]; data[p+2]=bytes[2]; data[p+3]=255;
+        data[p2]=bytes[3]; data[p2+1]=bytes[4]; data[p2+2]=bytes[5]; data[p2+3]=255;
+        data[p3]=bytes[6]; data[p3+1]=bytes[7]; data[p3+2]=0; data[p3+3]=255;
+    }
+
+    function peekToken(data, x, y) {
+        const p = (y * DIM + x) * 4;
+        if (data[p+3] === 0) return null; 
+        const p2 = (y * DIM + (x + 1)) * 4;
+        const p3 = ((y + 1) * DIM + x) * 4;
+        const buf = new ArrayBuffer(8);
+        const bytes = new Uint8Array(buf);
+        bytes[0]=data[p]; bytes[1]=data[p+1]; bytes[2]=data[p+2];
+        bytes[3]=data[p2]; bytes[4]=data[p2+1]; bytes[5]=data[p2+2];
+        bytes[6]=data[p3]; bytes[7]=data[p3+1];
+        return new DataView(buf).getFloat64(0, false);
+    }
+
+    async function executeSingleCalculationBake() {
+        const v1 = parseFloat(document.getElementById('inp_0').value);
+        const v2 = parseFloat(document.getElementById('inp_1').value);
+        const res = v1 / v2;
+        const [x, y] = getMorton(simCounter + 1);
+        const imgData = ctx.getImageData(0,0,DIM,DIM);
+        bakeToken(imgData.data, res, x, y);
+        ctx.putImageData(imgData, 0, 0);
+        appendLog(`Baking Point ${simCounter}: ${res.toPrecision(15)}`);
+        await exportToFolder();
+    }
+
+    async function processBatchEngineeringArray(e) {
+        const file = e.target.files[0];
+        const text = await file.text();
+        const lines = text.split('\n');
+        const imgData = ctx.createImageData(DIM, DIM);
+        for (let i = 1; i < lines.length; i++) {
+            const parts = lines[i].split(',');
+            if (parts.length < 3) continue;
+            const [x, y] = getMorton(parseInt(parts[0]));
+            bakeToken(imgData.data, parseFloat(parts[1])/parseFloat(parts[2]), x, y);
+        }
+        ctx.putImageData(imgData, 0, 0);
+        appendLog(`Batch Finished. Exporting Matrix.`);
+        await exportToFolder(file.name);
+    }
+
+    async function exportToFolder(filenameActual) {
+        if (!folderHandle) return;
+        const name = prompt("Project Component Name:", filenameActual);
+        if (!name) return;
+        simCounter++;
+        const ts = new Date().toISOString().replace(/[:T]/g, '_').substring(0, 19);
+        const filename = `${name}_v${simCounter}_${ts}.png`;
+        const fh = await folderHandle.getFileHandle(filename, {create:true});
+        const ws = await fh.createWritable();
+        canvas.toBlob(async b => {
+            await ws.write(b);
+            await ws.close();
+            appendLog("SUCCESS: Simulation exported as " + filename);
+        });
+    }
+
+    async function executeHighFrequencyDriftAnalysis() {
+        const f1 = document.getElementById('baselineMatrix').files[0];
+        const f2 = document.getElementById('comparativeMatrix').files[0];
+        if (!f1 || !f2) return;
+
+        const nameA = f1.name.replace(/\.[^/.]+$/, "");
+        const nameB = f2.name.replace(/\.[^/.]+$/, "");
+
+        const d1 = await loadImg(f1);
+        const d2 = await loadImg(f2);
+        
+        const auditResults = [];
+        
+        // Scan coordinates
+        for (let i = 0; i < 5000; i++) {
+            const [x, y] = getMorton(i);
+            const v1 = peekToken(d1, x, y);
+            const v2 = peekToken(d2, x, y);
+            
+            if (v1 !== null && v2 !== null) {
+                auditResults.push({ id: i, v1: v1, v2: v2 });
+            }
+        }
+
+        await generateEnhancedAuditReport(nameA, nameB, auditResults);
+    }
+
+    async function generateEnhancedAuditReport(fileA, fileB, auditData) {
+        const timestamp = new Date().toLocaleString();
+        
+        let rows = auditData.map(row => {
+            const delta = row.v2 - row.v1;
+            const deltaAbs = Math.abs(delta);
+            const isIdentical = delta === 0;
+            
+            // Logic: Highlight blue if same, +/- Red/Green if different
+            const deltaStyle = isIdentical ? 'color: #66fcf1; font-weight: bold;' : (delta > 0 ? 'color: #00ff00;' : 'color: #ff4d4d;');
+            const deltaText = isIdentical ? 'MATCH' : (delta > 0 ? `+${delta.toPrecision(8)}` : delta.toPrecision(8));
+            const rowClass = isIdentical ? 'row-match' : 'row-drift';
+
+            return `
+                <tr class="${rowClass}">
+                    <td>${row.id}</td>
+                    <td>${row.v1.toPrecision(12)}</td>
+                    <td>${row.v2.toPrecision(12)}</td>
+                    <td style="${deltaStyle}">${deltaText}</td>
+                </tr>`;
+        }).join('');
+
+        const fullHTML = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body { background: #0b0c10; color: #c5c6c7; font-family: 'Segoe UI', Tahoma, sans-serif; padding: 40px; }
+                .header { border-left: 5px solid #f2af29; padding-left: 20px; margin-bottom: 30px; }
+                h1 { color: #66fcf1; margin: 0; text-transform: uppercase; letter-spacing: 2px; }
+                .meta { color: #45a29e; font-family: monospace; margin-top: 5px; }
+                
+                .controls { margin-bottom: 20px; background: #1f2833; padding: 15px; border-radius: 4px; display: flex; gap: 10px; }
+                button { background: #45a29e; border: none; padding: 8px 15px; color: white; cursor: pointer; font-weight: bold; border-radius: 2px; }
+                button:hover { background: #66fcf1; color: #0b0c10; }
+                
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; background: #1f2833; }
+                th { background: #0b0c10; color: #f2af29; text-align: left; padding: 12px; border: 1px solid #45a29e; font-size: 12px; text-transform: uppercase; }
+                td { padding: 10px; border: 1px solid #0b0c10; font-family: 'Courier New', monospace; font-size: 13px; }
+                tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+                
+                .row-match { display: table-row; }
+                .show-only-drift .row-match { display: none; }
+                
+                @media print {
+                    .controls { display: none; }
+                    body { background: white; color: black; padding: 0; }
+                    table { background: white; color: black; border: 1px solid #ccc; }
+                    th { background: #eee; color: black; }
+                    td { border: 1px solid #eee; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>Forensic Drift Analysis</h1>
+                <div class="meta">Baseline: ${fileA} | Comparison: ${fileB} | Generated: ${timestamp}</div>
+            </div>
+
+            <div class="controls">
+                <button onclick="document.body.classList.toggle('show-only-drift')">Toggle: Only Show Drifts</button>
+                <button onclick="window.print()">Export to PDF</button>
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Vector ID</th>
+                        <th>[Ref] ${fileA}</th>
+                        <th>[Mod] ${fileB}</th>
+                        <th>Delta Value (Δ)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rows}
+                </tbody>
+            </table>
+        </body>
+        </html>`;
+
+        // 1. Export HTML file to Folder
+        const reportFileName = `AUDIT_${fileA}_vs_${fileB}.html`;
+        const fh = await folderHandle.getFileHandle(reportFileName, {create:true});
+        const ws = await fh.createWritable();
+        await ws.write(fullHTML);
+        await ws.close();
+
+        // 2. Automatically open the report in a new tab for PDF export
+        const blob = new Blob([fullHTML], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+
+        appendLog(`Detailed Forensic Report Generated: ${reportFileName}`);
+    }
+
+    function loadImg(f) {
+        return new Promise(res => {
+            const i = new Image();
+            i.onload = () => {
+                const c = document.createElement('canvas'); c.width = c.height = DIM;
+                const x = c.getContext('2d'); x.drawImage(i, 0, 0);
+                res(x.getImageData(0,0,DIM,DIM).data);
+            };
+            i.src = URL.createObjectURL(f);
+        });
+    }
+
+    // Simulator functions
+    function generateBoltData(filename, driftChance = 0) {
+        let csv = "id,force_n,area_m2\n";
+        const baseArea = 0.000353;
+        const baseForce = 120000.0;
+
+        for (let i = 0; i < 100000; i++) {
+            let force = baseForce + (Math.random() * 500);
+            let area = baseArea;
+            
+            // Inject subtle drift if requested (for the Alloy bolt)
+            if (driftChance > 0 && Math.random() < driftChance) {
+                force += (Math.random() * 0.000001); // Micro-drift
+            }
+
+            csv += `${i},${force.toFixed(10)},${area.toFixed(10)}\n`;
+        }
+
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+    }
+
+    // This was to generate fake test data.
+    //generateBoltData("carbon_steel_bolt_v1.csv", 0);
+    //generateBoltData("alloy_steel_bolt_v1.csv", 0.05);
+
+</script>
+</body>
+</html>

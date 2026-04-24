@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CalcTale | An Image Calculator Maker</title>
+    <style>
+        body { background: #0b0c10; color: #66fcf1; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; }
+        #controls { background: #1f2833; padding: 20px; border-radius: 10px; border: 1px solid #45a29e; margin: 20px; text-align: center; }
+        canvas { border: 1px solid #45a29e; max-width: 800px; background: black; }
+        button { background: #66fcf1; color: #0b0c10; border: none; padding: 10px 20px; font-weight: bold; cursor: pointer; margin: 10px; }
+        #status { font-family: monospace; color: #45a29e; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+    <div id="controls">
+        <div id="status">Ready to generate 4000x4000 MZMO Data Map...</div>
+        <button onclick="generateMZMO()">1. Generate Map</button>
+        <button id="dlBtn" style="display:none;" onclick="downloadMap()">2. Save CalcTale_Map.png</button>
+    </div>
+    
+    <canvas id="genesisCanvas"></canvas>
+
+<script>
+    const canvas = document.getElementById('genesisCanvas');
+    const ctx = canvas.getContext('2d');
+    const status = document.getElementById('status');
+    const SIZE = 4000;
+    canvas.width = SIZE;
+    canvas.height = SIZE;
+
+    function getMortonXY(n) {
+        let x = 0, y = 0;
+        for (let i = 0; i < 16; i++) {
+            x |= ((n >> (i * 2)) & 1) << i;
+            y |= ((n >> (i * 2 + 1)) & 1) << i;
+        }
+        return [x, y];
+    }
+
+    async function generateMZMO() {
+        status.textContent = "Processing 16 Million Pixels... Please wait.";
+        const imgData = ctx.createImageData(SIZE, SIZE);
+        const data = imgData.data;
+        const totalPixels = SIZE * SIZE;
+        const midPoint = Math.floor(totalPixels / 2);
+
+        // This simulates your dual-chain logic starting from the center
+        // We embed the index itself as the "pre-calculated" math answer
+        for (let i = 0; i <= midPoint; i++) {
+            // Forward Chain (A)
+            drawPixel(midPoint + i, data);
+            
+            // Backward Chain (B)
+            if (midPoint - i >= 0) {
+                drawPixel(midPoint - i, data);
+            }
+
+            // Update status every 1 million pixels to prevent browser hang
+            if (i % 500000 === 0) {
+                status.textContent = `Mapping Chains: ${Math.round((i/midPoint)*100)}%`;
+                await new Promise(r => setTimeout(r, 1));
+            }
+        }
+
+        ctx.putImageData(imgData, 0, 0);
+        status.textContent = "Generation Complete! You can now save the image.";
+        document.getElementById('dlBtn').style.display = "inline-block";
+    }
+
+    function drawPixel(index, dataArray) {
+        const [x, y] = getMortonXY(index);
+        if (x >= SIZE || y >= SIZE) return;
+        
+        const p = (y * SIZE + x) * 4;
+        
+        // We encode the "answer" (the index) into the RGB channels
+        // This is how the calculator "retrieves" the data
+        dataArray[p]     = (index >> 16) & 0xFF; // Red
+        dataArray[p + 1] = (index >> 8) & 0xFF;  // Green
+        dataArray[p + 2] = index & 0xFF;         // Blue
+        dataArray[p + 3] = 255;                  // Alpha
+    }
+
+    function downloadMap() {
+        const link = document.createElement('a');
+        link.download = 'mzmo_calculator_map.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    }
+</script>
+</body>
+</html>

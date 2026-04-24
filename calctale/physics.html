@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CalcTale | Physics Analyzer</title>
+    <style>
+        :root { --neon: #66fcf1; --dark: #0b0c10; --slate: #1f2833; --gold: #f2af29; --border: #45a29e; --alert: #ff4d4d; }
+        body { font-family: 'Times New Roman', serif; background: var(--dark); color: #c5c6c7; margin: 0; padding: 20px; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        
+        #fs-auth-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(11, 12, 16, 0.98); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; border: 4px solid var(--gold); box-sizing: border-box; transition: 0.3s; }
+        #fs-auth-overlay.error-state { border-color: var(--alert); background: rgba(40, 0, 0, 0.98); }
+        #fs-auth-overlay h1 { color: var(--gold); text-transform: uppercase; letter-spacing: 3px; margin-bottom: 10px; }
+        #fs-auth-overlay p { color: var(--neon); font-family: monospace; font-size: 14px; }
+        #overlay-error-log { margin-top: 20px; color: var(--alert); font-family: monospace; font-size: 12px; max-width: 80%; text-align: center; }
+
+        .main-layout { display: grid; grid-template-columns: 380px 1fr 380px; gap: 20px; flex-grow: 1; overflow: hidden; }
+        .panel { background: var(--slate); border: 1px solid var(--border); padding: 20px; border-radius: 4px; display: flex; flex-direction: column; overflow-y: auto; box-sizing: border-box; }
+        
+        h1 { color: var(--neon); text-align: center; font-variant: small-caps; margin: 0 0 15px 0; letter-spacing: 2px; }
+        h2 { color: var(--neon); font-size: 14px; margin-top: 0; text-transform: uppercase; letter-spacing: 1.5px; border-bottom: 1px solid rgba(102, 252, 241, 0.3); padding-bottom: 8px; }
+        label { display: block; font-size: 11px; margin: 12px 0 6px; color: var(--border); text-transform: uppercase; font-family: monospace; }
+        
+        select, input, textarea { width: 100%; background: #000; color: #fff; border: 1px solid #333; padding: 10px; box-sizing: border-box; font-family: monospace; font-size: 12px; }
+        .btn-teal { background: var(--neon); color: var(--dark); border: none; padding: 12px; font-weight: bold; cursor: pointer; margin-top: 15px; width: 100%; font-family: monospace; }
+        .btn-gold { background: var(--gold); color: var(--dark); border: none; padding: 12px; font-weight: bold; cursor: pointer; margin-top: 10px; width: 100%; font-family: monospace; }
+
+        #canvas-container { position: relative; background: #000; border: 1px solid var(--neon); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        canvas { max-width: 100%; max-height: 100%; image-rendering: pixelated; }
+        
+        #log-area { width: 100%; height: 250px; background: #000; color: #888; font-family: monospace; font-size: 11px; padding: 10px; box-sizing: border-box; overflow-y: auto; margin-top: 10px; border: 1px solid #222; }
+        .log-entry { border-bottom: 1px solid #222; padding: 4px 0; color: var(--border); }
+        #status-footer { display: flex; justify-content: space-between; padding: 5px 20px; border-top: 1px solid #222; font-family: monospace; font-size: 10px; color: #555; }
+    </style>
+</head>
+<body>
+
+<div id="fs-auth-overlay" onclick="mountSovereignSystem()">
+    <h1>System Initialization Required</h1>
+    <p>Click to mount File System & Initialize CalcTaleDB</p>
+    <div id="overlay-error-log"></div>
+</div>
+
+<div class="main-layout">
+    <div class="panel">
+        <h2>Physics to MZMO</h2>
+        <p style="font-size: 10px; color: var(--border)">Encode Universal Constants and relativistic equations into 64-bit fractal matrices.</p>
+        <label>Physics Equation</label>
+        <select id="disciplineSelection" onchange="updateInterfaceVariables()">
+            <option value="relativity">Mass-Energy Equivalence (E=mc²)</option>
+            <option value="gravity">Newtonian Gravitation (F=GmM/r²)</option>
+            <option value="schwarzschild">Schwarzschild Radius (Rs=2GM/c²)</option>
+        </select>
+        <div id="variableInputContainer"></div>
+        <button class="btn-teal" onclick="executeSingleCalculationBake()">Bake Single 64-Bit Token</button>
+        <button class="btn-gold" onclick="document.getElementById('bulk-file').click()">Process CSV Vector Batch</button>
+        <input type="file" id="bulk-file" style="display:none" onchange="processBatchEngineeringArray(event)">
+    </div>
+
+    <div id="canvas-container">
+        <canvas id="mzmoMatrix" width="4000" height="4000"></canvas>
+    </div>
+
+    <div class="panel">
+        <h2>Forensic Batch Audit</h2>
+        <div class="analysis-box">
+            <label>Baseline MZMO (Control)</label>
+            <input type="file" id="baselineMatrix" accept="image/png">
+            <label>Comparative Files (Select Multiple)</label>
+            <input type="file" id="comparativeMatrices" accept="image/png" multiple>
+            <button class="btn-teal" onclick="executeBatchDriftAnalysis()">Run Multi-File Bit-Audit</button>
+        </div>
+        <div id="log-area"></div>
+    </div>
+</div>
+
+<footer id="status-footer">
+    <div>Constants: c=299792458 | G=6.67430e-11</div>
+    <div>State: 64-Bit Precision Enabled</div>
+</footer>
+
+<script>
+    const DIM = 4000;
+    const canvas = document.getElementById('mzmoMatrix');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const logArea = document.getElementById('log-area');
+    const overlay = document.getElementById('fs-auth-overlay');
+    
+    let db, folderHandle, simCounter = 0;
+    const C = 299792458;
+    const G = 6.67430e-11;
+
+    function appendLog(msg, crit = false) {
+        const time = new Date().toLocaleTimeString();
+        logArea.insertAdjacentHTML('afterbegin', `<div class="log-entry" style="color:${crit?'#ff4d4d':''} !important;">[${time}] ${msg}</div>`);
+    }
+
+    async function mountSovereignSystem() {
+        try {
+            db = await new Promise((res, rej) => {
+                const req = indexedDB.open("CalcTalePhysicsDB", 1);
+                req.onupgradeneeded = e => {
+                    const d = e.target.result;
+                    if (!d.objectStoreNames.contains('folder_permissions')) d.createObjectStore('folder_permissions');
+                };
+                req.onsuccess = e => res(e.target.result);
+                req.onerror = e => rej(e.target.error);
+            });
+            folderHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+            overlay.style.display = 'none';
+            appendLog("Sovereign Physics Engine Mounted.");
+            updateInterfaceVariables();
+        } catch (err) {
+            document.getElementById('overlay-error-log').innerText = "FATAL: " + err;
+            appendLog("Mount Error: " + err, true);
+        }
+    }
+
+    function updateInterfaceVariables() {
+        const d = document.getElementById('disciplineSelection').value;
+        const c = document.getElementById('variableInputContainer');
+        const f = d === 'relativity' ? ["Mass (kg)"] : (d === 'gravity' ? ["Mass 1 (kg)", "Mass 2 (kg)", "Distance (m)"] : ["Stellar Mass (kg)"]);
+        c.innerHTML = f.map((l, i) => `<label>${l}</label><input type="number" step="any" value="1.0" id="inp_${i}">`).join('');
+    }
+
+    function getMorton(n) {
+        let x = 0, y = 0;
+        for (let i = 0; i < 16; i++) {
+            x |= ((n >> (i * 2)) & 1) << i;
+            y |= ((n >> (i * 2 + 1)) & 1) << i;
+        }
+        return [(x % 2000) * 2, (y % 2000) * 2];
+    }
+
+    function bakeToken(data, val, x, y) {
+        const buf = new ArrayBuffer(8);
+        new DataView(buf).setFloat64(0, val, false);
+        const bytes = new Uint8Array(buf);
+        const p = (y * DIM + x) * 4;
+        const p2 = (y * DIM + (x + 1)) * 4;
+        const p3 = ((y + 1) * DIM + x) * 4;
+        data[p]=bytes[0]; data[p+1]=bytes[1]; data[p+2]=bytes[2]; data[p+3]=255;
+        data[p2]=bytes[3]; data[p2+1]=bytes[4]; data[p2+2]=bytes[5]; data[p2+3]=255;
+        data[p3]=bytes[6]; data[p3+1]=bytes[7]; data[p3+2]=0; data[p3+3]=255;
+    }
+
+    function peekToken(data, x, y) {
+        const p = (y * DIM + x) * 4;
+        if (data[p+3] === 0) return null;
+        const p2 = (y * DIM + (x + 1)) * 4;
+        const p3 = ((y + 1) * DIM + x) * 4;
+        const buf = new ArrayBuffer(8);
+        const bytes = new Uint8Array(buf);
+        bytes[0]=data[p]; bytes[1]=data[p+1]; bytes[2]=data[p+2];
+        bytes[3]=data[p2]; bytes[4]=data[p2+1]; bytes[5]=data[p2+2];
+        bytes[6]=data[p3]; bytes[7]=data[p3+1];
+        return new DataView(buf).getFloat64(0, false);
+    }
+
+    async function executeSingleCalculationBake() {
+        const d = document.getElementById('disciplineSelection').value;
+        let res = 0;
+        if (d === 'relativity') res = parseFloat(document.getElementById('inp_0').value) * Math.pow(C, 2);
+        else if (d === 'gravity') res = G * (parseFloat(document.getElementById('inp_0').value) * parseFloat(document.getElementById('inp_1').value)) / Math.pow(parseFloat(document.getElementById('inp_2').value), 2);
+        else res = (2 * G * parseFloat(document.getElementById('inp_0').value)) / Math.pow(C, 2);
+
+        const [x, y] = getMorton(simCounter + 1);
+        const img = ctx.getImageData(0,0,DIM,DIM);
+        bakeToken(img.data, res, x, y);
+        ctx.putImageData(img, 0, 0);
+        await exportToFolder("SINGLE_BAKE");
+    }
+
+    async function processBatchEngineeringArray(e) {
+        const file = e.target.files[0];
+        const text = await file.text();
+        const lines = text.split('\n');
+        const imgData = ctx.createImageData(DIM, DIM);
+        const d = document.getElementById('disciplineSelection').value;
+
+        for (let i = 1; i < lines.length; i++) {
+            const p = lines[i].split(',');
+            if (p.length < 2) continue;
+            const [x, y] = getMorton(parseInt(p[0]));
+            let val = 0;
+            if (d === 'relativity') val = parseFloat(p[1]) * Math.pow(C, 2);
+            else if (d === 'gravity') val = G * (parseFloat(p[1]) * parseFloat(p[2])) / Math.pow(parseFloat(p[3]||1), 2);
+            else val = (2 * G * parseFloat(p[1])) / Math.pow(C, 2);
+            bakeToken(imgData.data, val, x, y);
+        }
+        ctx.putImageData(imgData, 0, 0);
+        await exportToFolder(file.name.split('.')[0]);
+    }
+
+    async function exportToFolder(base) {
+        simCounter++;
+        const fn = `${base}_v${simCounter}.png`;
+        const fh = await folderHandle.getFileHandle(fn, {create:true});
+        const ws = await fh.createWritable();
+        canvas.toBlob(async b => { await ws.write(b); await ws.close(); appendLog("Exported Physics Matrix: " + fn); });
+    }
+
+    async function executeBatchDriftAnalysis() {
+        const baseFile = document.getElementById('baselineMatrix').files[0];
+        const compFiles = document.getElementById('comparativeMatrices').files;
+        if (!baseFile || compFiles.length === 0) return;
+
+        const baseData = await loadImg(baseFile);
+        const baseName = baseFile.name.replace(/\.[^/.]+$/, "");
+        
+        let batchReports = "";
+
+        for (let file of compFiles) {
+            const compData = await loadImg(file);
+            const compName = file.name.replace(/\.[^/.]+$/, "");
+            const auditResults = [];
+
+            for (let i = 0; i < 10000; i++) {
+                const [x, y] = getMorton(i);
+                const v1 = peekToken(baseData, x, y);
+                const v2 = peekToken(compData, x, y);
+                if (v1 !== null && v2 !== null) auditResults.push({ id: i, v1, v2 });
+            }
+            batchReports += generateTableHTML(baseName, compName, auditResults);
+        }
+        await finalizeAuditReport(baseName, batchReports);
+    }
+
+    function generateTableHTML(nameA, nameB, data) {
+        let rows = data.map(r => {
+            const d = r.v2 - r.v1;
+            const style = d === 0 ? 'color: #66fcf1;' : (d > 0 ? 'color: #00ff00;' : 'color: #ff4d4d;');
+            return `<tr class="${d === 0 ? 'match' : 'drift'}"><td>${r.id}</td><td>${r.v1.toExponential(8)}</td><td>${r.v2.toExponential(8)}</td><td style="${style}">${d === 0 ? 'MATCH' : d.toExponential(4)}</td></tr>`;
+        }).join('');
+        return `<h3>Comparison: ${nameA} vs ${nameB}</h3><table><thead><tr><th>ID</th><th>${nameA}</th><th>${nameB}</th><th>Delta</th></tr></thead><tbody>${rows}</tbody></table>`;
+    }
+
+    async function finalizeAuditReport(baseName, tables) {
+        const html = `<html><head><style>
+            body { background: #0b0c10; color: #eee; font-family: sans-serif; padding: 20px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 40px; background: #1f2833; }
+            th, td { border: 1px solid #45a29e; padding: 8px; font-family: monospace; font-size: 11px; }
+            th { background: #0b0c10; color: #f2af29; }
+            .match { opacity: 0.5; }
+            .drift { background: rgba(255,0,0,0.1); }
+            .controls { position: sticky; top: 0; background: #0b0c10; padding: 10px; border-bottom: 2px solid var(--gold); }
+            button { background: #45a29e; color: white; border: none; padding: 10px; cursor: pointer; }
+            @media print { .controls { display: none; } }
+        </style></head><body>
+            <div class="controls">
+                <button onclick="window.print()">Export Batch to PDF</button>
+                <button onclick="document.body.classList.toggle('hide-matches')">Toggle Matches</button>
+            </div>
+            <h1>Physics Batch Audit: ${baseName}</h1>
+            ${tables}
+            <style>.hide-matches .match { display: none; }</style>
+        </body></html>`;
+        
+        const rh = await folderHandle.getFileHandle(`BATCH_AUDIT_${Date.now()}.html`, {create:true});
+        const rw = await rh.createWritable();
+        await rw.write(html);
+        await rw.close();
+        window.open(URL.createObjectURL(new Blob([html], {type:'text/html'})), '_blank');
+    }
+
+    function loadImg(f) {
+        return new Promise(res => {
+            const i = new Image();
+            i.onload = () => {
+                const c = document.createElement('canvas'); c.width = c.height = DIM;
+                const x = c.getContext('2d'); x.drawImage(i, 0, 0);
+                res(x.getImageData(0,0,DIM,DIM).data);
+            };
+            i.src = URL.createObjectURL(f);
+        });
+    }
+
+    //Simulator functions
+    function generatePhysicsBatch(filename, driftRate = 0) {
+        let csv = "id,mass_kg,dist_m\n";
+        const C = 299792458;
+        
+        for (let i = 0; i < 10000; i++) {
+            // Generates masses ranging from small particles to planetary scales
+            let mass = Math.random() * Math.pow(10, Math.random() * 30);
+            let dist = 100 + (Math.random() * 1e9);
+            
+            // Inject microscopic drift in the mass for comparison
+            if (driftRate > 0 && Math.random() < driftRate) {
+                mass += (mass * 1e-15); 
+            }
+
+            csv += `${i},${mass.toExponential(16)},${dist.toExponential(16)}\n`;
+        }
+
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        a.click();
+    }
+
+    // Generate a 10k Baseline and a 10k Modified set with 2% and 4% drift
+    //generatePhysicsBatch("stellar_mass_v1.csv", 0);
+    //generatePhysicsBatch("stellar_mass_v2.csv", 0.02);
+    //generatePhysicsBatch("stellar_mass_v3.csv", 0.04);
+
+</script>
+</body>
+</html>
