@@ -1,0 +1,102 @@
+
+            <html><head><style>
+                body { background: #0b0c10; color: white; font-family: monospace; padding: 40px; line-height: 1.4; }
+                h1, h2 { color: #66fcf1; border-bottom: 2px solid #45a29e; font-variant: small-caps; }
+                .eqn { background: #1f2833; padding: 25px; border-left: 5px solid #f2af29; font-size: 14px; margin: 25px 0; word-break: break-all; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
+                th, td { border: 1px solid #45a29e; padding: 10px; text-align: left; }
+                th { background: #000; color: #f2af29; }
+                .sig { color: #66fcf1; font-weight: bold; }
+                .warn { color: #ff4444; font-weight: bold; }
+                .note { font-size: 10px; color: #888; margin-top: 5px; }
+            </style></head><body>
+                <h1>Regression Analysis Results</h1>
+                <div class="eqn"><strong>Estimated Model:</strong><br>titlewordcount = 316.0592 + -0.1646(Source) + -18.5568(Leaning) + 0.7932(President)</div>
+                <p>Observations (N): 62994 | Confidence: 95% | Framework: OLS/Frequentist</p>
+                
+                <h2>Coefficient Estimates & Multicollinearity Analysis</h2>
+                <table>
+                    <tr>
+                        <th>Regressors</th>
+                        <th>Coefficient (β)</th>
+                        <th>Std. Error</th>
+                        <th>T-Stat</th>
+                        <th>P-Value</th>
+                        <th>VIF (Collinearity)</th>
+                    </tr>
+                    
+                        <tr>
+                            <td>(Intercept)</td>
+                            <td>316.059161</td>
+                            <td>0.003985</td>
+                            <td>79312.475</td>
+                            <td class="">2.0000</td>
+                            <td class="">1.00</td>
+                        </tr>
+                        <tr>
+                            <td>Source</td>
+                            <td>-0.164554</td>
+                            <td>0.000117</td>
+                            <td>-1410.824</td>
+                            <td class="sig">0.0000</td>
+                            <td class="">1.00</td>
+                        </tr>
+                        <tr>
+                            <td>Leaning</td>
+                            <td>-18.556824</td>
+                            <td>0.042085</td>
+                            <td>-440.939</td>
+                            <td class="sig">0.0000</td>
+                            <td class="">1.02</td>
+                        </tr>
+                        <tr>
+                            <td>President</td>
+                            <td>0.793169</td>
+                            <td>6.137753</td>
+                            <td>0.129</td>
+                            <td class="">1.1028</td>
+                            <td class="">1.02</td>
+                        </tr>
+                </table>
+
+                <h2>Descriptive Statistics</h2>
+                <table>
+                    <tr><th>Variable</th><th>Mean (μ)</th><th>Std. Deviation (σ)</th><th>Variance (σ²)</th></tr>
+                    
+                        <tr>
+                            <td>titlewordcount</td>
+                            <td>315.9484</td>
+                            <td>722.7201</td>
+                            <td>522324.3735</td>
+                        </tr>
+                    
+                        <tr>
+                            <td>Source</td>
+                            <td>0.6116</td>
+                            <td>34.1600</td>
+                            <td>1166.9030</td>
+                        </tr>
+                    
+                        <tr>
+                            <td>Leaning</td>
+                            <td>0.0005</td>
+                            <td>0.0958</td>
+                            <td>0.0092</td>
+                        </tr>
+                    
+                        <tr>
+                            <td>President</td>
+                            <td>-0.0000</td>
+                            <td>0.0007</td>
+                            <td>0.0000</td>
+                        </tr>
+                    
+                </table>
+
+                <div class="note">
+                    <strong>Statistical Notes:</strong><br>
+                    1. <strong>P-Values:</strong> Calculated via Two-Tailed Standard Normal distribution approximation.<br>
+                    2. <strong>VIF:</strong> Derived from the diagonal elements of the inverse correlation matrix.<br>
+                    3. <strong>Robustness:</strong> Parameters marked 'COLLINEAR' were dropped or set to zero due to a Singular Information Matrix (det(X'X) ≈ 0).
+                </div>
+            </body></html>

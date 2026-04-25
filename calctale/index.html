@@ -48,12 +48,23 @@
             border-bottom: 1px solid var(--border);
         }
 
-        .sidebar-header h1 {
+        .sidebar-header div {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .sidebar-header div h1 {
             margin: 0;
             color: var(--neon);
             font-variant: small-caps;
             letter-spacing: 3px;
             text-shadow: 0 0 15px var(--neon);
+        }
+
+        .sidebar-header div img {
+            width: auto;
+            height: 40px;
         }
 
         .nav-section {
@@ -141,7 +152,10 @@
 <div id="dashboard-container">
     <nav id="sidebar">
         <div class="sidebar-header">
-            <h1>CalcTale</h1>
+            <div>
+                <img src="CalcTale.png">
+                <h1>CalcTale</h1>
+            </div>
             <small style="color:var(--border)">Calculations & Research OS</small>
         </div>
 
@@ -158,6 +172,11 @@
         <div class="nav-section">
             <h3>Engineering</h3>
             <div id="eng-nav"></div>
+        </div>
+
+        <div class="nav-section">
+            <h3>Statistics</h3>
+            <div id="stats-nav"></div>
         </div>
 
         <!--<div class="nav-section" style="margin-top:auto">
@@ -181,7 +200,7 @@
     // Update these paths to match your actual file names
     const appRegistry = {
         basics: [
-            { label: "Calculator Creator", path: "calcmaker.html" },
+            { label: "Creator", path: "calcmaker.html" },
             { label: "Calculator", path: "calc.html" },
         ],
         physics: [
@@ -189,6 +208,9 @@
         ],
         engineer: [
             { label: "Integrative Analysis", path: "engineer.html" }
+        ],
+        statistics: [
+            { label: "Integrative Analysis", path: "statistics.html" }
         ]
     };
 
@@ -197,6 +219,7 @@
         const basics = document.getElementById('basics-nav');
         const physNav = document.getElementById('physics-nav');
         const engNav = document.getElementById('eng-nav');
+        const statsNav = document.getElementById('stats-nav');
         const mathNav = document.getElementById('math-nav');
 
         // Render Basics Links
@@ -215,6 +238,12 @@
         appRegistry.engineer.forEach(app => {
             const btn = createNavItem(app);
             engNav.appendChild(btn);
+        });
+
+        // Render Statistics Links
+        appRegistry.statistics.forEach(app => {
+            const btn = createNavItem(app);
+            statsNav.appendChild(btn);
         });
 
         // Load Default Page

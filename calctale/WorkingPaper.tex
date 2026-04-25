@@ -1,0 +1,76 @@
+\documentclass[10pt,twocolumn]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{geometry}
+\geometry{a4paper, margin=0.75in}
+
+\title{\textbf{Sovereign Data: \\ The Quad-Chunk MZMO Database Architecture and Variable Statistics Storage Framework}}
+\author{Matthew D. Benchimol}
+\date{April 2026}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+Modern data architectures require a paradigm shift from linear raster-scan storage to non-linear fractal geometries. This paper formalizes the Morton-Z Middle-Out (MZMO) approach, focusing on two critical implementations: Quad-Chunk coordinate mapping for physics-based bakes and high-density variable storage for out-of-core regressions.
+
+\section{Method: Morton-Z Middle-Out (MZMO)}
+The MZMO approach utilizes the Morton-Z order, a space-filling curve that maps multidimensional data to one dimension while preserving local proximity through bit-interleaving.
+
+\subsection{The Quad-Chunk Implementation}
+For high-density computational bakes, the Quad-Chunk MZMO maps a linear index $n$ to scaled coordinates $(X, Y)$ to ensure visual heuristic immunity. The mapping function $f: n \to (X, Y)$ is defined by bit-interleaving:
+
+\begin{equation}
+    x = \sum_{i=0}^{15} [ (n \gg 2i) \ \& \ 1 ] \cdot 2^i
+\end{equation}
+\begin{equation}
+    y = \sum_{i=0}^{15} [ (n \gg (2i + 1)) \ \& \ 1 ] \cdot 2^i
+\end{equation}
+
+To prevent raster-scan alignment and provide a "quadrant-jumping" effect, the output coordinates are scaled and bounded:
+\begin{equation}
+    X = 2 \cdot (x \pmod{2000}), \quad Y = 2 \cdot (y \pmod{2000})
+\end{equation}
+
+\subsection{Triad Tokenization}
+Data persistence is achieved via a triad pixel-block (Quad-Chunk). A 64-bit float is decomposed into an 8-byte sequence $[b_0, b_1, \dots, b_7]$ and distributed across three pixel coordinates:
+\begin{equation}
+    P(x, y) = [b_0, b_1, b_2, 255]
+\end{equation}
+\begin{equation}
+    P(x+1, y) = [b_3, b_4, b_5, 255]
+\end{equation}
+\begin{equation}
+    P(x, y+1) = [b_6, b_7, 0, 255]
+\end{equation}
+
+\section{Multivariate Variable Statistics Storage}
+The variable storage method extends the Morton-Z architecture to support multi-chain database structures. By introducing a \textit{chain index} ($\kappa$), variables are isolated into independent fractal dependency chains.
+
+\subsection{The Variable-Chain Mapping}
+The coordinate for the $r$-th observation of variable $\kappa$ is derived by shifting the entropy pool:
+\begin{equation}
+    \text{val} = (r + \Omega) + (\kappa \cdot 10^5)
+\end{equation}
+Where $\Omega$ represents the metadata offset. The resulting coordinate $(X, Y)$ is generated using the same bit-interleaving logic as the Quad-Chunk bake, ensuring consistent geometric diffusion across different data dimensions.
+
+\subsection{Metadata and Header Sovereignty}
+Variable names and record counts are stored within the offset $\Omega$. Each variable name is segmented into blocks of 7 characters, encoded into 64-bit floats, and baked into the fractal path. For a variable name $V$, the $k$-th block is encoded as:
+\begin{equation}
+    E_k = \sum_{j=0}^{6} \text{char}(V_{7k+j}) \ll 8j
+\end{equation}
+
+\section{Quantum Resistance and Diffusion}
+MZMO forces a sequential bottleneck on the dependency chain:
+\begin{equation}
+C_i = P_i \oplus C_{i-1} \oplus \text{mask}_i
+\end{equation}
+By mapping this logic onto fractal geometry, the system provides diffusion saturation. A single bit change "jumps" across quadrants, preventing quantum-inspired neural networks from identifying persistent local features or gradients.
+
+\section{Conclusion}
+The Quad-Chunk MZMO and its variable-chain extension provide a robust framework for private legibility. By eliminating the security risks associated with cloud-based raster storage, the Sovereign Core ensures client-side data sovereignty in the post-quantum era.
+
+\end{document}
