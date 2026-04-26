@@ -40,6 +40,7 @@
             flex-direction: column;
             box-shadow: 10px 0 30px rgba(0,0,0,0.5);
             z-index: 100;
+            overflow: auto;
         }
 
         .sidebar-header {
@@ -175,8 +176,18 @@
         </div>
 
         <div class="nav-section">
+            <h3>Chemistry</h3>
+            <div id="chem-nav"></div>
+        </div>
+
+        <div class="nav-section">
             <h3>Statistics</h3>
             <div id="stats-nav"></div>
+        </div>
+
+        <div class="nav-section">
+            <h3>Meteorologist</h3>
+            <div id="meteo-nav"></div>
         </div>
 
         <!--<div class="nav-section" style="margin-top:auto">
@@ -209,8 +220,14 @@
         engineer: [
             { label: "Integrative Analysis", path: "engineer.html" }
         ],
+        chemistry: [
+            { label: "Integrative Analysis", path: "chemistry.html" }
+        ],
         statistics: [
             { label: "Integrative Analysis", path: "statistics.html" }
+        ],
+        meteorologist: [
+            { label: "Integrative Analysis", path: "meteorologist.html" }
         ]
     };
 
@@ -219,7 +236,9 @@
         const basics = document.getElementById('basics-nav');
         const physNav = document.getElementById('physics-nav');
         const engNav = document.getElementById('eng-nav');
+        const chemNav = document.getElementById('chem-nav');
         const statsNav = document.getElementById('stats-nav');
+        const meteoNav = document.getElementById('meteo-nav');
         const mathNav = document.getElementById('math-nav');
 
         // Render Basics Links
@@ -240,10 +259,22 @@
             engNav.appendChild(btn);
         });
 
+        // Render Chemistry Links
+        appRegistry.chemistry.forEach(app => {
+            const btn = createNavItem(app);
+            chemNav.appendChild(btn);
+        });
+
         // Render Statistics Links
         appRegistry.statistics.forEach(app => {
             const btn = createNavItem(app);
             statsNav.appendChild(btn);
+        });
+
+        // Render Meteorologist Links
+        appRegistry.meteorologist.forEach(app => {
+            const btn = createNavItem(app);
+            meteoNav.appendChild(btn);
         });
 
         // Load Default Page

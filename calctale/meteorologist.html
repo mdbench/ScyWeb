@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CalcTale | Meteorologist</title>
+    <style>
+        :root { --neon: #00f5ff; --dark: #050a10; --slate: #0d1b2a; --gold: #f2af29; --border: #1b263b; --alert: #ff007a; }
+        body { font-family: 'Courier New', monospace; background: var(--dark); color: #c5c6c7; margin: 0; padding: 20px; display: flex; flex-direction: column; height: 95vh; overflow: hidden; }
+        
+        #fs-auth-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(5, 10, 16, 0.98); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; border: 4px solid var(--gold); }
+        #fs-auth-overlay h1 { color: var(--gold); text-transform: uppercase; letter-spacing: 2px; }
+        
+        .main-layout { display: grid; grid-template-columns: 380px 1fr; gap: 20px; flex-grow: 1; overflow: hidden; }
+        .panel { background: var(--slate); border: 1px solid var(--border); padding: 20px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+        h2 { color: var(--neon); font-size: 14px; text-transform: uppercase; border-bottom: 1px solid var(--border); padding-bottom: 5px; margin: 0; }
+        label { font-size: 10px; color: #45a29e; text-transform: uppercase; }
+        input { width: 100%; background: #000; color: #fff; border: 1px solid #333; padding: 10px; box-sizing: border-box; font-family: monospace; }
+        .btn { background: var(--neon); color: var(--dark); border: none; padding: 12px; font-weight: bold; cursor: pointer; text-transform: uppercase; }
+        
+        #canvas-container { background: #000; border: 1px solid var(--neon); overflow: auto; position: relative; flex-grow: 1; }
+        canvas { image-rendering: pixelated; display: block; position: absolute; top: 0; left: 0; }
+        #weather-canvas { pointer-events: none; opacity: 0.6; }
+        #pressure-canvas { pointer-events: none; visibility: hidden; }
+        #debug-layer { pointer-events: none; z-index: 2000; }
+
+        #data-card {
+            position: absolute; background: rgba(13, 27, 42, 0.95); border: 1px solid var(--neon);
+            padding: 15px; color: var(--neon); font-size: 12px; pointer-events: none;
+            display: none; z-index: 1000; box-shadow: 0 0 15px rgba(0, 245, 255, 0.3);
+            min-width: 240px;
+        }
+        #data-card b { color: var(--gold); text-transform: uppercase; font-size: 14px; }
+        #log { height: 150px; background: #000; color: #00f5ff; font-size: 11px; padding: 10px; border: 1px solid #111; overflow-y: auto; white-space: pre-wrap; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div id="fs-auth-overlay" onclick="mountSovereignSystem()">
+    <h1>System Initialization</h1>
+    <p>Click to Mount Directory & Load MZMO Stack</p>
+</div>
+
+<div class="main-layout">
+    <div class="panel">
+        <h2>1. Map Architecture</h2>
+        <label>Create Map Database (City CSV)</label>
+        <input type="file" id="city-csv" onchange="createMapDatabase(event)">
+        <label>Mount Map (.PNG)</label>
+        <input type="file" onchange="mountLayer(event, 'map')">
+        <button class="btn" style="background: var(--gold)" onclick="exportLayer('map')">Export Map DB</button>
+
+        <h2>2. Data Architecture</h2>
+        <label>Ingest Weather Vectors (CSV)</label>
+        <input type="file" onchange="ingestWeather(event)">
+        <!--<label>Mount Weather (.PNG)</label>
+        <input type="file" onchange="mountLayer(event, 'weather')">
+        <button class="btn" style="background: var(--gold)" onclick="exportLayer('weather')">Export Weather DB</button>-->
+
+        <hr style="border-color: #1b263b">
+        <h2>3. Cross Reference</h2>
+        <input type="text" id="coords" placeholder="" value="29.680694,-82.349175">
+        <button class="btn" onclick="executePeek()">Geolocate</button>
+        <div id="log">SYSTEM READY...</div>
+    </div>
+
+    <div id="canvas-container">
+        <div id="data-card"></div>
+        <canvas id="map-canvas" width="4000" height="4000"></canvas>
+        <canvas id="weather-canvas" width="4000" height="4000"></canvas>
+        <canvas id="pressure-canvas" width="4000" height="4000"></canvas>
+        <canvas id="debug-layer" width="4000" height="4000"></canvas>
+    </div>
+</div>
+
+<script>
+    const DIM = 4000;
+    const mapCtx = document.getElementById('map-canvas').getContext('2d', { willReadFrequently: true });
+    const wetCtx = document.getElementById('weather-canvas').getContext('2d', { willReadFrequently: true });
+    const prsCtx = document.getElementById('pressure-canvas').getContext('2d', { willReadFrequently: true });
+    const dbgCtx = document.getElementById('debug-layer').getContext('2d');
+    const logArea = document.getElementById('log');
+    const card = document.getElementById('data-card');
+
+    let folderHandle = null;
+    let cityRegistry = ["Gainesville City"]; 
+
+    function log(msg) {
+        logArea.innerHTML += `> ${msg}\n`;
+        logArea.scrollTop = logArea.scrollHeight;
+    }
+
+    async function mountSovereignSystem() {
+        try {
+            folderHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+            document.getElementById('fs-auth-overlay').style.display = 'none';
+            log("Directory Mounted.");
+            await autoLoadMZMOs();
+        } catch (err) { log("FS Access Denied: " + err); }
+    }
+
+    async function autoLoadMZMOs() {
+        for await (const entry of folderHandle.values()) {
+            if (entry.name === 'MZMO_MAP.png') await loadToCanvas(entry, mapCtx, "IDENTITY");
+            if (entry.name === 'MZMO_WEATHER.png') await loadToCanvas(entry, wetCtx, "THERMAL");
+            if (entry.name === 'MZMO_PRESSURE.png') await loadToCanvas(entry, prsCtx, "AERO");
+        }
+    }
+
+    async function loadToCanvas(entry, ctx, label) {
+        const file = await entry.getFile();
+        const img = await createImageBitmap(file);
+        ctx.drawImage(img, 0, 0);
+        log(`${label} layer auto-loaded.`);
+    }
+
+    function geoToPixel(lat, lon) {
+        const x = Math.floor(((parseFloat(lon) + 180) / 360) * (DIM - 1));
+        const y = Math.floor(((90 - parseFloat(lat)) / 180) * (DIM - 1));
+        return { x, y };
+    }
+
+    function getCityChecksum(name) {
+        let sum = 0;
+        const clean = name.toLowerCase().replace(/[^a-z]/g, '');
+        for (let i = 0; i < clean.length; i++) sum += (clean.charCodeAt(i) - 96);
+        return sum % 256;
+    }
+
+    async function createMapDatabase(e) {
+        const text = await e.target.files[0].text();
+        const lines = text.split('\n').slice(1);
+        const imgData = mapCtx.createImageData(DIM, DIM);
+        cityRegistry = [];
+
+        lines.forEach(line => {
+            const p = line.split(',');
+            if (p.length < 4) return;
+            const cityName = p[1].trim();
+            const { x, y } = geoToPixel(p[2], p[3]);
+            const i = (y * DIM + x) * 4;
+
+            imgData.data[i] = cityName.length;
+            imgData.data[i+1] = getCityChecksum(cityName);
+            imgData.data[i+2] = cityName.charCodeAt(0);
+            imgData.data[i+3] = 255;
+            cityRegistry.push(cityName);
+        });
+        mapCtx.putImageData(imgData, 0, 0);
+        log("Map Database Baked into RAM and Layer.");
+        if(folderHandle) await autoExport('map', 'MZMO_MAP.png');
+    }
+
+    async function ingestWeather(e) {
+        const text = await e.target.files[0].text();
+        const lines = text.split('\n').slice(1);
+        const thermalData = wetCtx.createImageData(DIM, DIM);
+        const aeroData = prsCtx.createImageData(DIM, DIM);
+
+        lines.forEach(line => {
+            const p = line.split(',');
+            if (p.length < 6) return;
+            const { x, y } = geoToPixel(p[1], p[2]);
+            const i = (y * DIM + x) * 4;
+
+            // THERMAL (16-bit Temp R+G, 8-bit Dewpoint B)
+            const temp = Math.floor((parseFloat(p[3]) + 100) * 100);
+            thermalData.data[i] = (temp >> 8) & 0xFF;
+            thermalData.data[i+1] = temp & 0xFF;
+            thermalData.data[i+2] = p[4] ? Math.floor(parseFloat(p[4]) + 50) : 0;
+            thermalData.data[i+3] = 255;
+
+            // AERO (16-bit Pressure R+G, 8-bit Humidity B)
+            const press = Math.floor((parseFloat(p[5]) || 1013.25) * 10);
+            aeroData.data[i] = (press >> 8) & 0xFF;
+            aeroData.data[i+1] = press & 0xFF;
+            aeroData.data[i+2] = p[6] ? Math.floor(parseFloat(p[6])) : 0;
+            aeroData.data[i+3] = 255;
+        });
+
+        wetCtx.putImageData(thermalData, 0, 0);
+        prsCtx.putImageData(aeroData, 0, 0);
+        log("Meteo Layers Baked.");
+        if(folderHandle) {
+            await autoExport('weather', 'MZMO_WEATHER.png');
+            await autoExport('pressure', 'MZMO_PRESSURE.png');
+        }
+    }
+
+    async function autoExport(cid, filename) {
+        const canvas = document.getElementById(cid + '-canvas');
+        const blob = await new Promise(res => canvas.toBlob(res));
+        const fh = await folderHandle.getFileHandle(filename, { create: true });
+        const ws = await fh.createWritable();
+        await ws.write(blob);
+        await ws.close();
+        log(`Auto-Saved: ${filename}`);
+    }
+
+    function executePeek() {
+        const input = document.getElementById('coords').value.split(',');
+        if(input.length < 2) return log("Error: Need Lat, Lon.");
+        const lat = input[0].trim(), lon = input[1].trim();
+        const { x, y } = geoToPixel(lat, lon);
+        
+        dbgCtx.clearRect(0,0,DIM,DIM);
+        dbgCtx.strokeStyle = "#ff007a";
+        dbgCtx.strokeRect(x - 5, y - 5, 10, 10);
+
+        const m = mapCtx.getImageData(x, y, 1, 1).data;
+        const w = wetCtx.getImageData(x, y, 1, 1).data;
+        const a = prsCtx.getImageData(x, y, 1, 1).data;
+        
+        let locName = "NO IDENTITY DATA";
+        if(m[3] > 0) {
+            if (cityRegistry.length === 0) {
+                locName = `ENCODED ID: [Len:${m[0]}, Sum:${m[1]}, Hint:${String.fromCharCode(m[2])}]`;
+            } else {
+                const match = cityRegistry.find(n => n.length === m[0] && getCityChecksum(n) === m[1] && n.charCodeAt(0) === m[2]);
+                locName = match || "ID MISMATCH";
+            }
+        }
+
+        const temp = (w[3] > 0) ? (((w[0] << 8) | w[1]) / 100 - 100).toFixed(2) : "N/A";
+        const press = (a[3] > 0) ? (((a[0] << 8) | a[1]) / 10).toFixed(1) : "N/A";
+        const hum = (a[3] > 0) ? a[2] : "N/A";
+
+        card.style.display = 'block';
+        card.style.left = (x + 20) + 'px'; card.style.top = (y - 20) + 'px';
+        card.innerHTML = `
+            <b>${locName}</b><br>
+            COORDS: ${lat}, ${lon}<br>
+            <hr style="border-color:var(--border)">
+            TEMP: ${temp}°C<br>
+            PRES: ${press} hPa<br>
+            HUMI: ${hum}%
+        `;
+        log(`FORENSIC PEEK AT [${x},${y}]`);
+
+        document.getElementById('canvas-container').scrollTo({left: x - 400, top: y - 400, behavior: 'smooth'});
+    }
+
+    function mountLayer(e, type) {
+        const img = new Image();
+        const ctx = type === 'map' ? mapCtx : wetCtx;
+        img.onload = () => { ctx.drawImage(img, 0, 0); log(`${type.toUpperCase()} mounted.`); };
+        img.src = URL.createObjectURL(e.target.files[0]);
+    }
+
+    function exportLayer(type) {
+        const canvas = document.getElementById(type + '-canvas');
+        const link = document.createElement('a');
+        link.download = `MZMO_${type.toUpperCase()}.png`;
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+    }
+</script>
+</body>
+</html>
