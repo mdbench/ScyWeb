@@ -15,3 +15,5 @@ gemtale/gemtale_data/*
 !gemtale/gemtale_data/*.ppm
 !gemtale/gemtale_data/*.png
 gemtale/gemtale_data/models/
+# Current Non-Commits
+calctale/*
