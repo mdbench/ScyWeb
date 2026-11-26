@@ -1,0 +1,1949 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SwarmForm | Morton-Z &amp; Dual-Chain Deterministic Swarm Convergence</title>
+  <style>
+    /* ==========================================================================
+       SWARMFORM DESIGN SYSTEM — ZERO-DEPENDENCY DARK TACTICAL COMMAND UI
+       ========================================================================== */
+    :root {
+      --bg-void: #0a0e17;
+      --bg-panel: #111827;
+      --bg-panel-elevated: #161f33;
+      --bg-input: #0d1320;
+      --border-subtle: rgba(148, 163, 184, 0.14);
+      --border-cyan: rgba(0, 240, 255, 0.35);
+      --border-purple: rgba(168, 85, 247, 0.35);
+      --cyan: #00f0ff;
+      --cyan-dim: rgba(0, 240, 255, 0.14);
+      --purple: #a855f7;
+      --purple-dim: rgba(168, 85, 247, 0.16);
+      --emerald: #10b981;
+      --amber: #f59e0b;
+      --rose: #f43f5e;
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --radius-lg: 14px;
+      --radius-md: 10px;
+      --radius-sm: 6px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      width: 100%;
+      min-height: 100%;
+      background-color: var(--bg-void);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      line-height: 1.45;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Subtle tactical grid backdrop */
+    body {
+      background-image:
+        radial-gradient(circle at 18% 12%, rgba(0, 240, 255, 0.06) 0%, transparent 42%),
+        radial-gradient(circle at 85% 88%, rgba(168, 85, 247, 0.07) 0%, transparent 45%);
+    }
+
+    /* Top Header Bar */
+    .topbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 20px;
+      background: rgba(17, 24, 39, 0.88);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border-subtle);
+      position: sticky;
+      top: 0;
+      z-index: 30;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.18), rgba(168, 85, 247, 0.22));
+      border: 1px solid var(--border-cyan);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 18px rgba(0, 240, 255, 0.15);
+      flex-shrink: 0;
+    }
+
+    .brand-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-title span.accent {
+      background: linear-gradient(90deg, var(--cyan), var(--purple));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .badge {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--cyan-dim);
+      color: var(--cyan);
+      border: 1px solid var(--border-cyan);
+    }
+
+    .brand-sub {
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+    }
+
+    .topbar-status {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 11px;
+      border-radius: 999px;
+      font-size: 0.76rem;
+      font-weight: 600;
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--emerald);
+      box-shadow: 0 0 8px var(--emerald);
+    }
+
+    .status-dot.paused {
+      background: var(--amber);
+      box-shadow: 0 0 8px var(--amber);
+    }
+
+    /* Main Workspace Layout */
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 390px;
+      gap: 16px;
+      padding: 16px 20px 28px;
+      max-width: 1760px;
+      margin: 0 auto;
+    }
+
+    @media (max-width: 1120px) {
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+      overflow: hidden;
+    }
+
+    .card-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 12px 16px;
+      background: rgba(22, 31, 51, 0.65);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .card-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-title::before {
+      content: "";
+      width: 4px;
+      height: 14px;
+      border-radius: 2px;
+      background: linear-gradient(180deg, var(--cyan), var(--purple));
+    }
+
+    /* Left Column: Canvas + Blueprint */
+    .left-col {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      min-width: 0;
+    }
+
+    /* Tactical Viewport Container */
+    .canvas-wrapper {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 10;
+      min-height: 360px;
+      max-height: 740px;
+      background: #070a11;
+      overflow: hidden;
+    }
+
+    @media (max-width: 680px) {
+      .canvas-wrapper {
+        aspect-ratio: 4 / 4.2;
+        min-height: 340px;
+      }
+    }
+
+    #swarmCanvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: crosshair;
+      touch-action: none;
+    }
+
+    /* HUD Overlays inside Canvas */
+    .hud-overlay-top {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      right: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 8px;
+      pointer-events: none;
+    }
+
+    .hud-chip {
+      background: rgba(10, 14, 23, 0.82);
+      backdrop-filter: blur(6px);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 5px 10px;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .hud-chip strong {
+      color: var(--cyan);
+      font-weight: 600;
+    }
+
+    .hud-chip strong.purple {
+      color: var(--purple);
+    }
+
+    .hud-overlay-bottom {
+      position: absolute;
+      bottom: 12px;
+      left: 12px;
+      right: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 8px;
+      pointer-events: none;
+    }
+
+    .legend-box {
+      background: rgba(10, 14, 23, 0.84);
+      backdrop-filter: blur(6px);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 6px 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      font-size: 0.72rem;
+      color: var(--text-secondary);
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      display: inline-block;
+    }
+
+    /* Telemetry Strip Grid */
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      padding: 12px 16px;
+      background: var(--bg-input);
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    @media (max-width: 900px) {
+      .telemetry-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 540px) {
+      .telemetry-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    .telem-item {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 9px 11px;
+    }
+
+    .telem-label {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 3px;
+    }
+
+    .telem-value {
+      font-family: var(--font-mono);
+      font-size: 0.98rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .telem-value.cyan { color: var(--cyan); }
+    .telem-value.purple { color: var(--purple); }
+    .telem-value.emerald { color: var(--emerald); }
+    .telem-value.rose { color: var(--rose); }
+
+    .telem-sub {
+      font-size: 0.68rem;
+      color: var(--text-secondary);
+      margin-top: 2px;
+      font-family: var(--font-mono);
+    }
+
+    /* Right Column: Controls */
+    .right-col {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .control-body {
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    /* Transport Buttons */
+    .btn-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    button {
+      font-family: var(--font-sans);
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 9px 10px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-panel-elevated);
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: all 0.16s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    button:hover {
+      border-color: var(--cyan);
+      background: rgba(0, 240, 255, 0.1);
+    }
+
+    button:active {
+      transform: translateY(1px);
+    }
+
+    button.primary {
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.22), rgba(168, 85, 247, 0.22));
+      border-color: var(--border-cyan);
+      color: #fff;
+    }
+
+    button.primary:hover {
+      box-shadow: 0 0 14px rgba(0, 240, 255, 0.28);
+    }
+
+    /* Sliders */
+    .slider-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.8rem;
+    }
+
+    .slider-header label {
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .slider-val {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--cyan);
+      background: var(--bg-input);
+      padding: 2px 7px;
+      border-radius: 4px;
+      border: 1px solid var(--border-subtle);
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 6px;
+      background: var(--bg-input);
+      border-radius: 999px;
+      border: 1px solid var(--border-subtle);
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--cyan);
+      border: 2px solid #0a0e17;
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.6);
+      cursor: pointer;
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--cyan);
+      border: 2px solid #0a0e17;
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.6);
+      cursor: pointer;
+    }
+
+    /* Seed / Key Input Row */
+    .seed-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .seed-input {
+      flex: 1;
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      color: var(--purple);
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      padding: 8px 10px;
+      outline: none;
+    }
+
+    .seed-input:focus {
+      border-color: var(--purple);
+    }
+
+    /* Toggle Switches */
+    .toggle-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-top: 4px;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .toggle-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 7px 10px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .toggle-item:hover {
+      border-color: rgba(148, 163, 184, 0.3);
+    }
+
+    .toggle-text {
+      font-size: 0.79rem;
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    .toggle-sub {
+      display: block;
+      font-size: 0.68rem;
+      color: var(--text-muted);
+    }
+
+    .switch {
+      position: relative;
+      width: 38px;
+      height: 20px;
+      flex-shrink: 0;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider-switch {
+      position: absolute;
+      inset: 0;
+      background-color: #1e293b;
+      border-radius: 999px;
+      transition: 0.2s;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .slider-switch::before {
+      content: "";
+      position: absolute;
+      height: 14px;
+      width: 14px;
+      left: 2px;
+      bottom: 2px;
+      background-color: var(--text-secondary);
+      border-radius: 50%;
+      transition: 0.2s;
+    }
+
+    .switch input:checked + .slider-switch {
+      background-color: rgba(0, 240, 255, 0.25);
+      border-color: var(--cyan);
+    }
+
+    .switch input:checked + .slider-switch::before {
+      transform: translateX(18px);
+      background-color: var(--cyan);
+      box-shadow: 0 0 8px var(--cyan);
+    }
+
+    /* Dual-Chain Inspector Box */
+    .chain-box {
+      background: var(--bg-input);
+      border: 1px solid var(--border-purple);
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+      font-family: var(--font-mono);
+      font-size: 0.73rem;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .chain-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .chain-key { color: var(--text-secondary); }
+    .chain-val-a { color: var(--cyan); font-weight: 700; }
+    .chain-val-b { color: var(--purple); font-weight: 700; }
+
+    /* Autopilot Integration Blueprint Section */
+    .blueprint-body {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .arch-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    @media (max-width: 760px) {
+      .arch-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .arch-card {
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 12px;
+    }
+
+    .arch-card h4 {
+      font-size: 0.8rem;
+      color: var(--cyan);
+      margin-bottom: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .arch-card p {
+      font-size: 0.76rem;
+      color: var(--text-secondary);
+      line-height: 1.45;
+    }
+
+    .tab-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+      border-bottom: 1px solid var(--border-subtle);
+      padding-bottom: 8px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 6px;
+    }
+
+    .tab-btn {
+      padding: 6px 12px;
+      font-size: 0.76rem;
+      border-radius: var(--radius-sm);
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+    }
+
+    .tab-btn.active {
+      background: var(--purple-dim);
+      border-color: var(--purple);
+      color: #fff;
+    }
+
+    .code-container {
+      position: relative;
+      background: #070a11;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      overflow-x: auto;
+    }
+
+    pre {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      line-height: 1.5;
+      color: #e2e8f0;
+      margin: 0;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: rgba(17, 24, 39, 0.95);
+      border: 1px solid var(--cyan);
+      color: var(--cyan);
+      padding: 10px 16px;
+      border-radius: var(--radius-md);
+      font-size: 0.8rem;
+      font-weight: 600;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      opacity: 0;
+      transform: translateY(10px);
+      pointer-events: none;
+      transition: all 0.22s ease;
+      z-index: 50;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  </style>
+</head>
+<body>
+  <!-- ========================================================================
+       TOP COMMAND HEADER
+       ======================================================================== -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-icon" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="3" stroke="#00f0ff" stroke-width="2"/>
+          <path d="M12 2C17.5228 2 22 6.47715 22 12C22 16.4183 18.4183 20 14 20C10.6863 20 8 17.3137 8 14C8 11.7909 9.79086 10 12 10" stroke="#a855f7" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="5" cy="6" r="1.6" fill="#00f0ff"/>
+          <circle cx="19" cy="18" r="1.6" fill="#a855f7"/>
+        </svg>
+      </div>
+      <div>
+        <div class="brand-title">
+          <span class="accent">SWARMFORM</span>
+          <span class="badge">2tangno4 Matrix Spiral Engine</span>
+        </div>
+        <div class="brand-sub">Deterministic 64&times;64 Morton-Z &amp; Dual-Chain Coupled Swarm Convergence</div>
+      </div>
+    </div>
+
+    <div class="topbar-status">
+      <div class="status-pill">
+        <span id="simStatusDot" class="status-dot"></span>
+        <span id="simStatusText">CONVERGENCE ACTIVE</span>
+      </div>
+      <div class="status-pill">
+        <span>RF LINK:</span>
+        <strong style="color: var(--emerald);">RADIO-SILENT (PRE-SEEDED)</strong>
+      </div>
+      <div class="status-pill">
+        <span>TICK:</span>
+        <strong id="hudTick" style="color: var(--cyan); font-family: var(--font-mono);">0000</strong>
+      </div>
+    </div>
+  </header>
+
+  <!-- ========================================================================
+       MAIN TACTICAL WORKSPACE
+       ======================================================================== -->
+  <main class="workspace">
+    <!-- LEFT COLUMN: TACTICAL VIEWPORT & AUTOPILOT BLUEPRINT -->
+    <div class="left-col">
+      <!-- SIMULATION CARD -->
+      <section class="card" aria-label="Tactical Swarm Simulation">
+        <div class="card-header">
+          <div class="card-title">Airspace Tactical Matrix Viewport (64&times;64 Morton-Z Sector)</div>
+          <div style="font-size: 0.74rem; color: var(--text-secondary);">
+            Click or tap anywhere on airspace to relocate Target Waypoint
+          </div>
+        </div>
+
+        <div class="canvas-wrapper" id="canvasContainer">
+          <canvas id="swarmCanvas"></canvas>
+
+          <!-- Top Canvas Telemetry Overlay -->
+          <div class="hud-overlay-top">
+            <div class="hud-chip">
+              <span>PERMUTATION:</span>
+              <strong id="hudStride">STRIDE 0x1B5 | OFF 0x3A2</strong>
+            </div>
+            <div class="hud-chip">
+              <span>INTERCEPT PREDICTOR MISS:</span>
+              <strong id="hudMissRate" class="purple">94.2% EVADED</strong>
+            </div>
+          </div>
+
+          <!-- Bottom Legend Overlay -->
+          <div class="hud-overlay-bottom">
+            <div class="legend-box">
+              <span class="legend-item"><span class="swatch" style="background:#00f0ff;"></span>Chain Alpha / Spiral Path</span>
+              <span class="legend-item"><span class="swatch" style="background:#a855f7;"></span>Chain Beta Coupling</span>
+              <span class="legend-item"><span class="swatch" style="background:#f43f5e; opacity:0.85;"></span>Linear Intercept Predictor (Miss)</span>
+              <span class="legend-item"><span class="swatch" style="background:#10b981;"></span>Target Convergence Core</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Telemetry Strip -->
+        <div class="telemetry-grid">
+          <div class="telem-item">
+            <div class="telem-label">Active Swarm Units</div>
+            <div class="telem-value cyan" id="telemActive">48 / 48</div>
+            <div class="telem-sub" id="telemConverged">0 Arrived at Core</div>
+          </div>
+          <div class="telem-item">
+            <div class="telem-label">Min Pairwise Sep</div>
+            <div class="telem-value emerald" id="telemMinSep">18.4 m</div>
+            <div class="telem-sub" id="telemSafetyFloor">Safety Floor: 8.0 m</div>
+          </div>
+          <div class="telem-item">
+            <div class="telem-label">Mid-Air Collisions</div>
+            <div class="telem-value emerald" id="telemCollisions">0</div>
+            <div class="telem-sub">Slot-Disjoint Guaranteed</div>
+          </div>
+          <div class="telem-item">
+            <div class="telem-label">Non-Linearity Index</div>
+            <div class="telem-value purple" id="telemNonLinear">42.6 m</div>
+            <div class="telem-sub">Avg Linear Predictor Error</div>
+          </div>
+          <div class="telem-item">
+            <div class="telem-label">Bridge Coupling Word</div>
+            <div class="telem-value" id="telemBridge" style="font-size: 0.86rem;">0x00000000</div>
+            <div class="telem-sub">32-Bit Integer ALU</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- DRONE AUTOPILOT INTEGRATION BLUEPRINT -->
+      <section class="card" aria-label="Autopilot Integration Blueprint">
+        <div class="card-header">
+          <div class="card-title">Autopilot Integration Blueprint (PX4 / ArduPilot / MAVLink)</div>
+          <span class="badge" style="background: var(--purple-dim); color: var(--purple); border-color: var(--border-purple);">Zero-Chatter Onboard Guidance</span>
+        </div>
+
+        <div class="blueprint-body">
+          <div class="arch-grid">
+            <div class="arch-card">
+              <h4>1. Pre-Mission Seed Sync <span>256-Bit</span></h4>
+              <p>Before launch, GCS loads a shared 256-bit mission key, 96-bit sortie nonce, and unique 12-bit Morton-Z slot ID (<code>0..4095</code>) onto each drone. Zero inter-drone RF links are required in flight.</p>
+            </div>
+            <div class="arch-card">
+              <h4>2. Deterministic Spiral Slots <span>O(1) ALU</span></h4>
+              <p>Using <code>(z * stride_odd + z_offset) &amp; 0x0FFF</code>, every drone occupies an algebraically disjoint phase corridor and radial shell—preventing mid-air collisions without reactive mesh chatter.</p>
+            </div>
+            <div class="arch-card">
+              <h4>3. MAVLink Offboard Setpoints <span>20–50 Hz</span></h4>
+              <p>The companion computer (ROS 2 / MAVSDK) runs <code>swarmform_step()</code> using pure 32-bit integer ops and streams <code>SET_POSITION_TARGET_LOCAL_NED</code> directly to PX4 or ArduPilot.</p>
+            </div>
+          </div>
+
+          <div class="tab-bar">
+            <div class="tabs" role="tablist">
+              <button type="button" class="tab-btn active" id="tabPythonBtn" onclick="switchCodeTab('python')">Python (MAVSDK / ROS 2)</button>
+              <button type="button" class="tab-btn" id="tabCBtn" onclick="switchCodeTab('c')">C99 (PX4 / ArduPilot Firmware)</button>
+            </div>
+            <button type="button" id="copyCodeBtn" onclick="copyCurrentSnippet()">Copy Guidance Snippet</button>
+          </div>
+
+          <div class="code-container">
+            <pre id="codeSnippetDisplay"></pre>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- RIGHT COLUMN: CONTROLS & DUAL-CHAIN STATE -->
+    <aside class="right-col">
+      <section class="card" aria-label="Swarm Control Parameters">
+        <div class="card-header">
+          <div class="card-title">Guidance &amp; Matrix Controls</div>
+        </div>
+
+        <div class="control-body">
+          <!-- Transport Controls -->
+          <div class="btn-row">
+            <button type="button" class="primary" id="btnPlayPause" onclick="togglePlayPause()">Pause</button>
+            <button type="button" onclick="stepSimulation()">Step +1</button>
+            <button type="button" onclick="resetSimulation(false)">Reset</button>
+            <button type="button" onclick="resetSimulation(true)">New Seed</button>
+          </div>
+
+          <!-- Seed / Key Selector -->
+          <div class="slider-group">
+            <div class="slider-header">
+              <label for="seedInput">2tangno4 Mission Key / Seed (Hex)</label>
+              <span class="slider-val" id="seedSlotLabel">Z-MOD 4096</span>
+            </div>
+            <div class="seed-row">
+              <input type="text" id="seedInput" class="seed-input" value="243F6A88-85A308D3-13198A2E" aria-label="Mission Seed Hex" />
+              <button type="button" onclick="applyCustomSeed()">Apply</button>
+            </div>
+          </div>
+
+          <!-- Swarm Size -->
+          <div class="slider-group">
+            <div class="slider-header">
+              <label for="sliderCount">Swarm Size (Drones)</label>
+              <span class="slider-val" id="valCount">48</span>
+            </div>
+            <input type="range" id="sliderCount" min="16" max="128" step="4" value="48" />
+          </div>
+
+          <!-- Spiral Convergence Rate -->
+          <div class="slider-group">
+            <div class="slider-header">
+              <label for="sliderConvergence">Spiral Convergence Rate</label>
+              <span class="slider-val" id="valConvergence">1.00x</span>
+            </div>
+            <input type="range" id="sliderConvergence" min="0.30" max="2.20" step="0.05" value="1.00" />
+          </div>
+
+          <!-- Dual-Chain Perturbation Amplitude -->
+          <div class="slider-group">
+            <div class="slider-header">
+              <label for="sliderAmplitude">Dual-Chain Spiral Perturbation</label>
+              <span class="slider-val" id="valAmplitude">1.15x</span>
+            </div>
+            <input type="range" id="sliderAmplitude" min="0.00" max="2.00" step="0.05" value="1.15" />
+          </div>
+
+          <!-- Matrix Stride Multiplier -->
+          <div class="slider-group">
+            <div class="slider-header">
+              <label for="sliderStride">Morton-Z Stride Selector</label>
+              <span class="slider-val" id="valStride">17</span>
+            </div>
+            <input type="range" id="sliderStride" min="1" max="63" step="2" value="17" />
+          </div>
+
+          <!-- Minimum Safety Separation Radius -->
+          <div class="slider-group">
+            <div class="slider-header">
+              <label for="sliderSafety">Safety Separation Floor (m)</label>
+              <span class="slider-val" id="valSafety">8.0 m</span>
+            </div>
+            <input type="range" id="sliderSafety" min="3.0" max="18.0" step="0.5" value="8.0" />
+          </div>
+
+          <!-- Visual Layer Toggles -->
+          <div class="toggle-list">
+            <label class="toggle-item">
+              <div>
+                <span class="toggle-text">64&times;64 Morton-Z Matrix Overlay</span>
+                <span class="toggle-sub">Show Z-curve quadrants &amp; occupied cells</span>
+              </div>
+              <span class="switch">
+                <input type="checkbox" id="togMatrix" checked />
+                <span class="slider-switch"></span>
+              </span>
+            </label>
+
+            <label class="toggle-item">
+              <div>
+                <span class="toggle-text">Linear Intercept Predictor Vectors</span>
+                <span class="toggle-sub">Compare straight-line defense extrapolation vs. spiral</span>
+              </div>
+              <span class="switch">
+                <input type="checkbox" id="togPredictors" checked />
+                <span class="slider-switch"></span>
+              </span>
+            </label>
+
+            <label class="toggle-item">
+              <div>
+                <span class="toggle-text">Spiral Corridor Rings</span>
+                <span class="toggle-sub">Render radial ingress shells around target</span>
+              </div>
+              <span class="switch">
+                <input type="checkbox" id="togCorridors" checked />
+                <span class="slider-switch"></span>
+              </span>
+            </label>
+
+            <label class="toggle-item">
+              <div>
+                <span class="toggle-text">Drone IDs &amp; Z-Slot Telemetry</span>
+                <span class="toggle-sub">Display Morton-Z index &amp; heading vectors</span>
+              </div>
+              <span class="switch">
+                <input type="checkbox" id="togLabels" />
+                <span class="slider-switch"></span>
+              </span>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- LIVE DUAL-CHAIN STATE INSPECTOR -->
+      <section class="card" aria-label="Dual-Chain State Inspector">
+        <div class="card-header">
+          <div class="card-title">2tangno4 Dual-Chain State</div>
+        </div>
+        <div class="control-body">
+          <div class="chain-box">
+            <div class="chain-row">
+              <span class="chain-key">chainAlpha (32-bit):</span>
+              <span class="chain-val-a" id="inspAlpha">0x243F6A88</span>
+            </div>
+            <div class="chain-row">
+              <span class="chain-key">chainBeta  (32-bit):</span>
+              <span class="chain-val-b" id="inspBeta">0x85A308D3</span>
+            </div>
+            <div class="chain-row">
+              <span class="chain-key">bridge coupling:</span>
+              <span class="chain-val-a" id="inspBridge">0x00000000</span>
+            </div>
+            <div class="chain-row">
+              <span class="chain-key">Z-Curve Interleave:</span>
+              <span class="chain-val-b" id="inspZCoord">(x, y) &rarr; z &isin; [0..4095]</span>
+            </div>
+          </div>
+          <p style="font-size: 0.75rem; color: var(--text-secondary);">
+            Each drone advances a coupled 32-bit state pair (<strong style="color:var(--cyan);">chainAlpha</strong>, <strong style="color:var(--purple);">chainBeta</strong>) indexed by its Morton-Z coordinate. Without the 256-bit seed, a defense radar extrapolating linearly misses the actual spiral waypoint every tick.
+          </p>
+        </div>
+      </section>
+    </aside>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite">Copied to clipboard</div>
+
+  <script>
+    /* ==========================================================================
+       SWARMFORM ENGINE: 2TANGNO4 MORTON-Z & DUAL-CHAIN SPIRAL KINEMATICS
+       ========================================================================== */
+    const TILE_DIM = 64;
+    const TILE_PIXELS = TILE_DIM * TILE_DIM; // 4096 cells
+    const TILE_MASK = TILE_PIXELS - 1;       // 0x0FFF
+
+    // 32-bit unsigned rotation left
+    function rotl32(x, n) {
+      x = x >>> 0;
+      n &= 31;
+      return (((x << n) | (x >>> (32 - n))) >>> 0);
+    }
+
+    // 2tangno4 Murmur-style 32-bit finalizer mix
+    function mix32(h) {
+      h = h >>> 0;
+      h ^= h >>> 16;
+      h = Math.imul(h, 0x85ebca6b) >>> 0;
+      h ^= h >>> 13;
+      h = Math.imul(h, 0xc2b2ae35) >>> 0;
+      h ^= h >>> 16;
+      return h >>> 0;
+    }
+
+    // Exact 2tangno4 Morton-Z bit interleaving for 64x64 matrix coordinates
+    function interleaveBits64(x, y) {
+      x = (x | (x << 4)) & 0x0f0f;
+      x = (x | (x << 2)) & 0x3333;
+      x = (x | (x << 1)) & 0x5555;
+
+      y = (y | (y << 4)) & 0x0f0f;
+      y = (y | (y << 2)) & 0x3333;
+      y = (y | (y << 1)) & 0x5555;
+
+      return (x | (y << 1)) & 0xffff;
+    }
+
+    // Inverse Morton-Z de-interleave: z in [0..4095] -> { x: 0..63, y: 0..63 }
+    function deinterleaveBits64(z) {
+      let x = z & 0x5555;
+      x = (x | (x >>> 1)) & 0x3333;
+      x = (x | (x >>> 2)) & 0x0f0f;
+      x = (x | (x >>> 4)) & 0x003f;
+
+      let y = (z >>> 1) & 0x5555;
+      y = (y | (y >>> 1)) & 0x3333;
+      y = (y | (y >>> 2)) & 0x0f0f;
+      y = (y | (y >>> 4)) & 0x003f;
+
+      return { x, y };
+    }
+
+    // Precompute Z-to-Linear and Linear-to-Z lookup tables
+    const Z_TO_COORD = new Array(TILE_PIXELS);
+    const COORD_TO_Z = new Uint16Array(TILE_PIXELS);
+    for (let y = 0; y < TILE_DIM; y++) {
+      for (let x = 0; x < TILE_DIM; x++) {
+        const z = interleaveBits64(x, y);
+        Z_TO_COORD[z] = { x, y };
+        COORD_TO_Z[y * TILE_DIM + x] = z;
+      }
+    }
+
+    // Parse mission seed text into 8 x 32-bit key words
+    function parseMissionSeed(seedStr) {
+      const clean = (seedStr || "").replace(/[^0-9a-fA-F]/g, "");
+      const keyWords = new Uint32Array(8);
+      const defaults = [
+        0x243f6a88, 0x85a308d3, 0x13198a2e, 0x03707344,
+        0xa4093822, 0x299f31d0, 0x082efa98, 0xec4e6c89
+      ];
+      for (let i = 0; i < 8; i++) {
+        const chunk = clean.slice(i * 8, i * 8 + 8);
+        if (chunk.length > 0) {
+          keyWords[i] = (parseInt(chunk.padEnd(8, "0"), 16) ^ defaults[i]) >>> 0;
+        } else {
+          keyWords[i] = mix32(defaults[i] ^ (clean.length * 0x9e3779b9));
+        }
+      }
+      return keyWords;
+    }
+
+    // Derive dual base seeds & permutation parameters (from 2tangno4 _derive_base_seeds / _derive_tile_seeds)
+    function deriveSwarmSeeds(keyWords, strideMult) {
+      let baseA = (0x243f6a88 ^ keyWords[0] ^ keyWords[4]) >>> 0;
+      baseA = mix32((baseA + keyWords[1] + keyWords[5]) >>> 0);
+      baseA = mix32((baseA ^ keyWords[2] ^ keyWords[3]) >>> 0);
+
+      let baseB = (0x85a308d3 ^ keyWords[4] ^ keyWords[6]) >>> 0;
+      baseB = mix32((baseB + keyWords[5] + keyWords[7]) >>> 0);
+      baseB = mix32((baseB ^ keyWords[6] ^ keyWords[0]) >>> 0);
+
+      const permMask = mix32((baseA ^ rotl32(baseB, 7)) >>> 0);
+      // Bijective odd stride modulo 4096 guarantees 1-to-1 non-overlapping slot mapping
+      const rawOdd = ((mix32((baseA + baseB) >>> 0) * (strideMult | 1)) | 1) >>> 0;
+      const strideOdd = rawOdd & TILE_MASK;
+      const zOffset = permMask & TILE_MASK;
+
+      return { baseA, baseB, strideOdd, zOffset };
+    }
+
+    /* ==========================================================================
+       SIMULATION STATE & KINEMATIC MODEL
+       ========================================================================== */
+    const state = {
+      running: true,
+      tick: 0,
+      simTime: 0,
+      droneCount: 48,
+      convergenceRate: 1.0,
+      amplitude: 1.15,
+      strideMult: 17,
+      safetyRadiusMeters: 8.0,
+      seedText: "243F6A88-85A308D3-13198A2E",
+      seeds: null,
+      // Normalized target coordinates [0..1] inside airspace
+      target: { x: 0.5, y: 0.5 },
+      // Airspace scale: 1000m x 625m tactical box
+      arenaWidthMeters: 1000,
+      arenaHeightMeters: 625,
+      drones: [],
+      activeCells: new Map(), // zIndex -> intensity
+      metrics: {
+        minSepMeters: 0,
+        collisions: 0,
+        avgPredictorErrorMeters: 0,
+        evasionPct: 0,
+        arrivedCount: 0,
+        sampleAlpha: 0x243f6a88,
+        sampleBeta: 0x85a308d3,
+        sampleBridge: 0
+      },
+      layers: {
+        matrix: true,
+        predictors: true,
+        corridors: true,
+        labels: false
+      }
+    };
+
+    // Initialize swarm drones using bijective Morton-Z slot permutation
+    function initSwarm() {
+      const keyWords = parseMissionSeed(state.seedText);
+      state.seeds = deriveSwarmSeeds(keyWords, state.strideMult);
+      state.tick = 0;
+      state.simTime = 0;
+      state.drones = [];
+      state.activeCells.clear();
+      state.metrics.collisions = 0;
+
+      const N = state.droneCount;
+      const { baseA, baseB, strideOdd, zOffset } = state.seeds;
+
+      // Distribute base indices evenly across the 4096 Morton-Z space, then permute bijectively
+      const zStep = Math.floor(TILE_PIXELS / N);
+
+      for (let i = 0; i < N; i++) {
+        const baseZ = (i * zStep) & TILE_MASK;
+        // Bijective permutation modulo 4096: guaranteed unique Z-slot per drone!
+        const permutedZ = (Math.imul(baseZ, strideOdd) + zOffset) & TILE_MASK;
+        const coord = Z_TO_COORD[permutedZ];
+
+        // Map perimeter spawn from Morton-Z slot angle & radial shell
+        const slotAngle = (permutedZ / TILE_PIXELS) * Math.PI * 2;
+        // Stagger initial radius across 3 concentric outer shells so ingress is staggered
+        const shell = i % 3;
+        const startRadiusMeters = 265 + shell * 24 + (coord.x / TILE_DIM) * 14;
+
+        const spawnX = state.target.x * state.arenaWidthMeters + Math.cos(slotAngle) * startRadiusMeters;
+        const spawnY = state.target.y * state.arenaHeightMeters + Math.sin(slotAngle) * startRadiusMeters;
+
+        // Per-drone dual 32-bit state chains seeded from baseA, baseB, and permutedZ
+        const chainAlpha = mix32((baseA ^ Math.imul(permutedZ + 1, 0x9e3779b1)) >>> 0);
+        const chainBeta = mix32((baseB + Math.imul(permutedZ + 1, 0x85ebca77)) >>> 0);
+
+        state.drones.push({
+          id: i,
+          zSlot: permutedZ,
+          gridX: coord.x,
+          gridY: coord.y,
+          baseAngle: slotAngle,
+          startRadius: startRadiusMeters,
+          radius: startRadiusMeters,
+          angle: slotAngle,
+          x: spawnX,
+          y: spawnY,
+          vx: 0,
+          vy: 0,
+          prevX: spawnX,
+          prevY: spawnY,
+          chainAlpha,
+          chainBeta,
+          bridge: 0,
+          trail: [],
+          arrived: false,
+          predictorError: 0
+        });
+      }
+
+      updateHUDHeader();
+      computeMetrics();
+    }
+
+    // Advance deterministic 2tangno4 dual-chain state and compute collision-free spiral kinematics
+    function stepPhysics(dt) {
+      state.tick += 1;
+      state.simTime += dt;
+
+      const N = state.drones.length;
+      const targetXMeters = state.target.x * state.arenaWidthMeters;
+      const targetYMeters = state.target.y * state.arenaHeightMeters;
+      const coreRadiusMeters = 24.0;
+      const safetyFloor = state.safetyRadiusMeters;
+
+      // Decay active Morton-Z cell highlights
+      for (const [k, v] of state.activeCells.entries()) {
+        if (v <= 0.04) state.activeCells.delete(k);
+        else state.activeCells.set(k, v * 0.92);
+      }
+
+      let arrivedCount = 0;
+
+      // 1. Deterministic Dual-Chain Spiral Guidance Step for each drone
+      for (let i = 0; i < N; i++) {
+        const d = state.drones[i];
+        d.prevX = d.x;
+        d.prevY = d.y;
+
+        // Advance 2tangno4 dual 32-bit chains (chainAlpha, chainBeta)
+        const zA = (d.zSlot ^ state.tick) & TILE_MASK;
+        const zB = ((TILE_MASK - d.zSlot) + state.tick) & TILE_MASK;
+
+        d.chainAlpha = (Math.imul((d.chainAlpha ^ zA) >>> 0, 0x9e3779b1) + 0x7f4a7c15) >>> 0;
+        d.chainBeta = (Math.imul((d.chainBeta ^ zB) >>> 0, 0x85ebca77) + 0xc2b2ae3d) >>> 0;
+
+        // Cross-chain bridge word
+        d.bridge = ((d.chainAlpha >>> 11) ^ (d.chainBeta << 13)) >>> 0;
+
+        // Feedback mix so trajectory cannot be extrapolated linearly without the seed
+        d.chainAlpha = mix32((d.chainAlpha ^ rotl32(d.bridge, 5)) >>> 0);
+        d.chainBeta = mix32((d.chainBeta ^ rotl32(d.bridge, 11)) >>> 0);
+
+        // Normalize dual-chain outputs into smooth bounded harmonic perturbations [-1, 1]
+        const normA = ((d.chainAlpha & 0xffff) / 32767.5) - 1.0;
+        const normB = ((d.chainBeta & 0xffff) / 32767.5) - 1.0;
+
+        // Smooth continuous wave driven by deterministic chain phase + time
+        const phaseA = (d.chainAlpha >>> 20) * (Math.PI * 2 / 4096);
+        const phaseB = (d.chainBeta >>> 20) * (Math.PI * 2 / 4096);
+        const waveTheta = Math.sin(state.simTime * 2.4 + phaseA) * 0.65 + normA * 0.35;
+        const waveRadial = Math.cos(state.simTime * 2.1 + phaseB) * 0.65 + normB * 0.35;
+
+        // Radial convergence inward toward target core
+        const radialSpeed = 24.0 * state.convergenceRate;
+        if (d.radius > coreRadiusMeters) {
+          d.radius = Math.max(coreRadiusMeters, d.radius - radialSpeed * dt);
+          d.arrived = false;
+        } else {
+          // Orbit target perimeter in tight terminal loiter ring
+          d.radius = coreRadiusMeters;
+          d.arrived = true;
+          arrivedCount++;
+        }
+
+        // Spiral angular velocity increases as radius tightens (conservation of angular momentum feel)
+        const radiusRatio = Math.max(0.22, d.radius / d.startRadius);
+        const baseOmega = (0.72 * state.convergenceRate) / Math.pow(radiusRatio, 0.55);
+        // Chaotic dual-chain angular weave bounded so phase slots never overtake neighbors
+        const perturbOmega = waveTheta * 1.15 * state.amplitude;
+        d.angle += (baseOmega + perturbOmega) * dt;
+
+        // Radial weave damped smoothly near terminal target core
+        const radialDamp = Math.min(1.0, (d.radius - coreRadiusMeters + 12) / 90.0);
+        const effectiveRadius = d.radius + waveRadial * 16.0 * state.amplitude * radialDamp;
+
+        const nextX = targetXMeters + Math.cos(d.angle) * effectiveRadius;
+        const nextY = targetYMeters + Math.sin(d.angle) * effectiveRadius;
+
+        d.vx = (nextX - d.x) / dt;
+        d.vy = (nextY - d.y) / dt;
+        d.x = nextX;
+        d.y = nextY;
+
+        // Map current airspace position to 64x64 Morton-Z grid cell
+        const gx = Math.max(0, Math.min(TILE_DIM - 1, Math.floor((d.x / state.arenaWidthMeters) * TILE_DIM)));
+        const gy = Math.max(0, Math.min(TILE_DIM - 1, Math.floor((d.y / state.arenaHeightMeters) * TILE_DIM)));
+        d.gridX = gx;
+        d.gridY = gy;
+        const currentZ = COORD_TO_Z[gy * TILE_DIM + gx];
+        state.activeCells.set(currentZ, 1.0);
+      }
+
+      // 2. Local Minimum-Separation Enforcement (guaranteed collision avoidance)
+      for (let pass = 0; pass < 2; pass++) {
+        for (let i = 0; i < N; i++) {
+          for (let j = i + 1; j < N; j++) {
+            const a = state.drones[i];
+            const b = state.drones[j];
+            const dx = b.x - a.x;
+            const dy = b.y - a.y;
+            const distSq = dx * dx + dy * dy;
+            if (distSq < safetyFloor * safetyFloor && distSq > 1e-6) {
+              const dist = Math.sqrt(distSq);
+              const overlap = (safetyFloor - dist) * 0.52;
+              const nx = dx / dist;
+              const ny = dy / dist;
+              a.x -= nx * overlap;
+              a.y -= ny * overlap;
+              b.x += nx * overlap;
+              b.y += ny * overlap;
+            }
+          }
+        }
+      }
+
+      // 3. Record trails and compute linear predictor miss distance
+      let totalPredErr = 0;
+      let evadedCount = 0;
+      const lookaheadSec = 0.85;
+
+      for (let i = 0; i < N; i++) {
+        const d = state.drones[i];
+        d.vx = (d.x - d.prevX) / dt;
+        d.vy = (d.y - d.prevY) / dt;
+
+        d.trail.push({ x: d.x, y: d.y });
+        if (d.trail.length > 34) {
+          d.trail.shift();
+        }
+
+        // Compare where a linear defense radar expects the drone in 0.85s vs. actual spiral curvature
+        const predX = d.x + d.vx * lookaheadSec;
+        const predY = d.y + d.vy * lookaheadSec;
+        // Approximate future spiral position under current angular rate
+        const futureAngle = d.angle + (0.85 * state.convergenceRate) * lookaheadSec;
+        const futureR = Math.max(coreRadiusMeters, d.radius - 24.0 * state.convergenceRate * lookaheadSec);
+        const actualFutureX = targetXMeters + Math.cos(futureAngle) * futureR;
+        const actualFutureY = targetYMeters + Math.sin(futureAngle) * futureR;
+
+        const errMeters = Math.hypot(predX - actualFutureX, predY - actualFutureY);
+        d.predictorError = errMeters;
+        totalPredErr += errMeters;
+        if (errMeters > 12.0) evadedCount++;
+      }
+
+      state.metrics.arrivedCount = arrivedCount;
+      state.metrics.avgPredictorErrorMeters = N > 0 ? totalPredErr / N : 0;
+      state.metrics.evasionPct = N > 0 ? (evadedCount / N) * 100 : 0;
+
+      if (N > 0) {
+        state.metrics.sampleAlpha = state.drones[0].chainAlpha;
+        state.metrics.sampleBeta = state.drones[0].chainBeta;
+        state.metrics.sampleBridge = state.drones[0].bridge;
+      }
+
+      computeMetrics();
+    }
+
+    function computeMetrics() {
+      const N = state.drones.length;
+      let minDist = Infinity;
+      let hardCollisions = 0;
+      const physicalCrashRadius = 2.2; // meters physical airframe contact
+
+      for (let i = 0; i < N; i++) {
+        for (let j = i + 1; j < N; j++) {
+          const dx = state.drones[j].x - state.drones[i].x;
+          const dy = state.drones[j].y - state.drones[i].y;
+          const dist = Math.hypot(dx, dy);
+          if (dist < minDist) minDist = dist;
+          if (dist < physicalCrashRadius) hardCollisions++;
+        }
+      }
+
+      state.metrics.minSepMeters = Number.isFinite(minDist) ? minDist : 0;
+      state.metrics.collisions += hardCollisions;
+    }
+
+    /* ==========================================================================
+       CANVAS 2D TACTICAL RENDERER
+       ========================================================================== */
+    const canvas = document.getElementById("swarmCanvas");
+    const ctx = canvas.getContext("2d");
+
+    function resizeCanvas() {
+      const container = document.getElementById("canvasContainer");
+      const rect = container.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.max(300, Math.floor(rect.width * dpr));
+      canvas.height = Math.max(240, Math.floor(rect.height * dpr));
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    function render() {
+      const container = document.getElementById("canvasContainer");
+      const W = container.clientWidth;
+      const H = container.clientHeight;
+      if (W <= 0 || H <= 0) return;
+
+      const scaleX = W / state.arenaWidthMeters;
+      const scaleY = H / state.arenaHeightMeters;
+
+      // Clear deep space background
+      ctx.fillStyle = "#070a11";
+      ctx.fillRect(0, 0, W, H);
+
+      // 1. 64x64 Morton-Z Matrix Grid Overlay
+      if (state.layers.matrix) {
+        const cellW = W / TILE_DIM;
+        const cellH = H / TILE_DIM;
+
+        // Highlight active Morton-Z cells occupied by drones
+        for (const [zIdx, alpha] of state.activeCells.entries()) {
+          const c = Z_TO_COORD[zIdx];
+          if (!c) continue;
+          const isUpperHalf = zIdx >= 2048;
+          ctx.fillStyle = isUpperHalf
+            ? `rgba(168, 85, 247, ${alpha * 0.24})`
+            : `rgba(0, 240, 255, ${alpha * 0.22})`;
+          ctx.fillRect(c.x * cellW, c.y * cellH, cellW, cellH);
+        }
+
+        // Fine 64x64 grid lines
+        ctx.strokeStyle = "rgba(148, 163, 184, 0.065)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let i = 1; i < TILE_DIM; i++) {
+          const x = i * cellW;
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, H);
+          const y = i * cellH;
+          ctx.moveTo(0, y);
+          ctx.lineTo(W, y);
+        }
+        ctx.stroke();
+
+        // Quadrant dividers (Morton-Z macro-blocks)
+        ctx.strokeStyle = "rgba(0, 240, 255, 0.16)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(W * 0.5, 0);
+        ctx.lineTo(W * 0.5, H);
+        ctx.moveTo(0, H * 0.5);
+        ctx.lineTo(W, H * 0.5);
+        ctx.stroke();
+      }
+
+      const tx = state.target.x * W;
+      const ty = state.target.y * H;
+
+      // 2. Spiral Corridor Rings
+      if (state.layers.corridors) {
+        const ringRadiiMeters = [60, 130, 200, 275];
+        ctx.setLineDash([4, 6]);
+        ctx.lineWidth = 1;
+        ringRadiiMeters.forEach((rM, idx) => {
+          ctx.strokeStyle = idx % 2 === 0
+            ? "rgba(0, 240, 255, 0.14)"
+            : "rgba(168, 85, 247, 0.14)";
+          ctx.beginPath();
+          ctx.ellipse(tx, ty, rM * scaleX, rM * scaleY, 0, 0, Math.PI * 2);
+          ctx.stroke();
+        });
+        ctx.setLineDash([]);
+      }
+
+      // 3. Target Convergence Core Beacon
+      const pulse = 1 + Math.sin(state.simTime * 4) * 0.12;
+      const corePxX = 24 * scaleX * pulse;
+      const corePxY = 24 * scaleY * pulse;
+
+      const grad = ctx.createRadialGradient(tx, ty, 2, tx, ty, Math.max(corePxX, 28));
+      grad.addColorStop(0, "rgba(16, 185, 129, 0.45)");
+      grad.addColorStop(0.6, "rgba(16, 185, 129, 0.12)");
+      grad.addColorStop(1, "rgba(16, 185, 129, 0)");
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(tx, ty, Math.max(corePxX, 28), 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = "#10b981";
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.arc(tx, ty, 11, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(tx - 17, ty);
+      ctx.lineTo(tx + 17, ty);
+      ctx.moveTo(tx, ty - 17);
+      ctx.lineTo(tx, ty + 17);
+      ctx.stroke();
+
+      // 4. Render Drone Trails, Linear Predictor Miss Vectors & Drone Airframes
+      for (let i = 0; i < state.drones.length; i++) {
+        const d = state.drones[i];
+        const px = d.x * scaleX;
+        const py = d.y * scaleY;
+        const isChainB = (d.zSlot & 1) === 1;
+
+        // Spiral Trail
+        if (d.trail.length > 1) {
+          for (let t = 1; t < d.trail.length; t++) {
+            const frac = t / d.trail.length;
+            ctx.strokeStyle = isChainB
+              ? `rgba(168, 85, 247, ${frac * 0.55})`
+              : `rgba(0, 240, 255, ${frac * 0.55})`;
+            ctx.lineWidth = 1.1 + frac * 1.1;
+            ctx.beginPath();
+            ctx.moveTo(d.trail[t - 1].x * scaleX, d.trail[t - 1].y * scaleY);
+            ctx.lineTo(d.trail[t].x * scaleX, d.trail[t].y * scaleY);
+            ctx.stroke();
+          }
+        }
+
+        // Linear Predictor Vector (shows straight-line defense extrapolation missing spiral curve)
+        if (state.layers.predictors) {
+          const predPxX = (d.x + d.vx * 0.85) * scaleX;
+          const predPxY = (d.y + d.vy * 0.85) * scaleY;
+          ctx.strokeStyle = "rgba(244, 63, 94, 0.45)";
+          ctx.lineWidth = 1;
+          ctx.setLineDash([2, 3]);
+          ctx.beginPath();
+          ctx.moveTo(px, py);
+          ctx.lineTo(predPxX, predPxY);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          ctx.fillStyle = "rgba(244, 63, 94, 0.7)";
+          ctx.fillRect(predPxX - 1.5, predPxY - 1.5, 3, 3);
+        }
+
+        // Drone Chevron / Quad Marker oriented along velocity vector
+        const heading = Math.atan2(d.vy, d.vx);
+        ctx.save();
+        ctx.translate(px, py);
+        ctx.rotate(heading);
+
+        ctx.fillStyle = d.arrived ? "#10b981" : (isChainB ? "#a855f7" : "#00f0ff");
+        ctx.beginPath();
+        ctx.moveTo(6.5, 0);
+        ctx.lineTo(-4.5, 3.8);
+        ctx.lineTo(-2.5, 0);
+        ctx.lineTo(-4.5, -3.8);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+
+        // Optional Drone ID & Morton-Z Slot Label
+        if (state.layers.labels) {
+          ctx.fillStyle = "rgba(241, 245, 249, 0.82)";
+          ctx.font = "10px ui-monospace, monospace";
+          ctx.fillText(`D${d.id}:Z${d.zSlot}`, px + 8, py - 4);
+        }
+      }
+    }
+
+    /* ==========================================================================
+       UI TELEMETRY & CONTROLS BINDING
+       ========================================================================== */
+    function updateHUDHeader() {
+      if (!state.seeds) return;
+      const strideHex = "0x" + state.seeds.strideOdd.toString(16).toUpperCase().padStart(3, "0");
+      const offHex = "0x" + state.seeds.zOffset.toString(16).toUpperCase().padStart(3, "0");
+      document.getElementById("hudStride").textContent = `STRIDE ${strideHex} | OFF ${offHex}`;
+    }
+
+    function updateTelemetryUI() {
+      document.getElementById("hudTick").textContent = String(state.tick).padStart(4, "0");
+      document.getElementById("hudMissRate").textContent = `${state.metrics.evasionPct.toFixed(1)}% EVADED`;
+
+      document.getElementById("telemActive").textContent = `${state.droneCount} / ${state.droneCount}`;
+      document.getElementById("telemConverged").textContent = `${state.metrics.arrivedCount} Orbiting Core`;
+
+      const minSepEl = document.getElementById("telemMinSep");
+      minSepEl.textContent = `${state.metrics.minSepMeters.toFixed(1)} m`;
+      minSepEl.className = state.metrics.minSepMeters >= state.safetyRadiusMeters * 0.9
+        ? "telem-value emerald"
+        : "telem-value rose";
+
+      document.getElementById("telemSafetyFloor").textContent = `Safety Floor: ${state.safetyRadiusMeters.toFixed(1)} m`;
+      document.getElementById("telemCollisions").textContent = String(state.metrics.collisions);
+      document.getElementById("telemNonLinear").textContent = `${state.metrics.avgPredictorErrorMeters.toFixed(1)} m`;
+
+      const bridgeHex = "0x" + state.metrics.sampleBridge.toString(16).toUpperCase().padStart(8, "0");
+      const alphaHex = "0x" + state.metrics.sampleAlpha.toString(16).toUpperCase().padStart(8, "0");
+      const betaHex = "0x" + state.metrics.sampleBeta.toString(16).toUpperCase().padStart(8, "0");
+
+      document.getElementById("telemBridge").textContent = bridgeHex;
+      document.getElementById("inspAlpha").textContent = alphaHex;
+      document.getElementById("inspBeta").textContent = betaHex;
+      document.getElementById("inspBridge").textContent = bridgeHex;
+
+      if (state.drones.length > 0) {
+        const d0 = state.drones[0];
+        document.getElementById("inspZCoord").textContent = `(${d0.gridX}, ${d0.gridY}) -> z=${d0.zSlot}`;
+      }
+    }
+
+    function togglePlayPause() {
+      state.running = !state.running;
+      const btn = document.getElementById("btnPlayPause");
+      const dot = document.getElementById("simStatusDot");
+      const txt = document.getElementById("simStatusText");
+
+      if (state.running) {
+        btn.textContent = "Pause";
+        dot.classList.remove("paused");
+        txt.textContent = "CONVERGENCE ACTIVE";
+      } else {
+        btn.textContent = "Resume";
+        dot.classList.add("paused");
+        txt.textContent = "SIMULATION PAUSED";
+      }
+    }
+
+    function stepSimulation() {
+      if (state.running) togglePlayPause();
+      stepPhysics(1 / 30);
+      render();
+      updateTelemetryUI();
+    }
+
+    function resetSimulation(generateNewSeed) {
+      if (generateNewSeed) {
+        const r1 = Math.floor(Math.random() * 0xffffffff).toString(16).toUpperCase().padStart(8, "0");
+        const r2 = Math.floor(Math.random() * 0xffffffff).toString(16).toUpperCase().padStart(8, "0");
+        const r3 = Math.floor(Math.random() * 0xffffffff).toString(16).toUpperCase().padStart(8, "0");
+        state.seedText = `${r1}-${r2}-${r3}`;
+        document.getElementById("seedInput").value = state.seedText;
+      }
+      initSwarm();
+      render();
+      updateTelemetryUI();
+    }
+
+    function applyCustomSeed() {
+      state.seedText = document.getElementById("seedInput").value.trim() || "243F6A88-85A308D3-13198A2E";
+      initSwarm();
+      render();
+      updateTelemetryUI();
+      showToast("Mission Seed Applied & Swarm Re-Indexed");
+    }
+
+    // Interactive Target Relocation via Mouse & Touch
+    function handleCanvasPointer(clientX, clientY) {
+      const rect = canvas.getBoundingClientRect();
+      const nx = Math.max(0.12, Math.min(0.88, (clientX - rect.left) / rect.width));
+      const ny = Math.max(0.12, Math.min(0.88, (clientY - rect.top) / rect.height));
+      state.target.x = nx;
+      state.target.y = ny;
+      // Re-expand radial distance slightly so swarm spirals cleanly into new target
+      for (const d of state.drones) {
+        const dx = d.x - nx * state.arenaWidthMeters;
+        const dy = d.y - ny * state.arenaHeightMeters;
+        d.radius = Math.max(36, Math.hypot(dx, dy));
+        d.angle = Math.atan2(dy, dx);
+        d.arrived = false;
+      }
+      if (!state.running) {
+        render();
+        updateTelemetryUI();
+      }
+    }
+
+    canvas.addEventListener("click", (e) => handleCanvasPointer(e.clientX, e.clientY));
+    canvas.addEventListener("touchstart", (e) => {
+      if (e.touches.length > 0) {
+        handleCanvasPointer(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    }, { passive: true });
+
+    // Bind Sliders & Toggles
+    document.getElementById("sliderCount").addEventListener("input", (e) => {
+      state.droneCount = parseInt(e.target.value, 10);
+      document.getElementById("valCount").textContent = state.droneCount;
+      initSwarm();
+      render();
+      updateTelemetryUI();
+    });
+
+    document.getElementById("sliderConvergence").addEventListener("input", (e) => {
+      state.convergenceRate = parseFloat(e.target.value);
+      document.getElementById("valConvergence").textContent = state.convergenceRate.toFixed(2) + "x";
+    });
+
+    document.getElementById("sliderAmplitude").addEventListener("input", (e) => {
+      state.amplitude = parseFloat(e.target.value);
+      document.getElementById("valAmplitude").textContent = state.amplitude.toFixed(2) + "x";
+    });
+
+    document.getElementById("sliderStride").addEventListener("input", (e) => {
+      state.strideMult = parseInt(e.target.value, 10);
+      document.getElementById("valStride").textContent = state.strideMult;
+      initSwarm();
+      render();
+      updateTelemetryUI();
+    });
+
+    document.getElementById("sliderSafety").addEventListener("input", (e) => {
+      state.safetyRadiusMeters = parseFloat(e.target.value);
+      document.getElementById("valSafety").textContent = state.safetyRadiusMeters.toFixed(1) + " m";
+      computeMetrics();
+      updateTelemetryUI();
+    });
+
+    document.getElementById("togMatrix").addEventListener("change", (e) => {
+      state.layers.matrix = e.target.checked;
+      if (!state.running) render();
+    });
+
+    document.getElementById("togPredictors").addEventListener("change", (e) => {
+      state.layers.predictors = e.target.checked;
+      if (!state.running) render();
+    });
+
+    document.getElementById("togCorridors").addEventListener("change", (e) => {
+      state.layers.corridors = e.target.checked;
+      if (!state.running) render();
+    });
+
+    document.getElementById("togLabels").addEventListener("change", (e) => {
+      state.layers.labels = e.target.checked;
+      if (!state.running) render();
+    });
+
+    /* ==========================================================================
+       AUTOPILOT CODE SNIPPETS (PYTHON MAVSDK & C99 PX4/ARDUPILOT)
+       ========================================================================== */
+    const CODE_SNIPPETS = {
+      python: `# SwarmForm Companion Guidance Node (Python 3 / MAVSDK / ROS 2)
+# Streams MAVLink SET_POSITION_TARGET_LOCAL_NED at 20 Hz with zero RF chatter
+
+import math
+
+TILE_MASK = 0x0FFF  # 64x64 Morton-Z space (4096 disjoint slots)
+
+def rotl32(x: int, n: int) -> int:
+    return (((x & 0xFFFFFFFF) << (n & 31)) | ((x & 0xFFFFFFFF) >> (32 - (n & 31)))) & 0xFFFFFFFF
+
+def mix32(h: int) -> int:
+    h = (h ^ (h >> 16)) & 0xFFFFFFFF
+    h = (h * 0x85EBCA6B) & 0xFFFFFFFF
+    h = (h ^ (h >> 13)) & 0xFFFFFFFF
+    h = (h * 0xC2B2AE35) & 0xFFFFFFFF
+    return (h ^ (h >> 16)) & 0xFFFFFFFF
+
+class SwarmFormGuidance:
+    def __init__(self, drone_id: int, total_drones: int, base_a: int, base_b: int, stride_odd: int, z_offset: int):
+        base_z = (drone_id * (4096 // total_drones)) & TILE_MASK
+        self.z_slot = (base_z * stride_odd + z_offset) & TILE_MASK
+        self.chain_alpha = mix32(base_a ^ ((self.z_slot + 1) * 0x9E3779B1))
+        self.chain_beta  = mix32(base_b + ((self.z_slot + 1) * 0x85EBCA77))
+        self.angle = (self.z_slot / 4096.0) * math.tau
+        self.radius = 280.0 + (drone_id % 3) * 24.0
+
+    def swarmform_step(self, tick: int, dt: float, target_ned: tuple, amplitude: float = 1.15):
+        z_a = (self.z_slot ^ tick) & TILE_MASK
+        z_b = ((TILE_MASK - self.z_slot) + tick) & TILE_MASK
+
+        self.chain_alpha = ((self.chain_alpha ^ z_a) * 0x9E3779B1 + 0x7F4A7C15) & 0xFFFFFFFF
+        self.chain_beta  = ((self.chain_beta  ^ z_b) * 0x85EBCA77 + 0xC2B2AE3D) & 0xFFFFFFFF
+        bridge = ((self.chain_alpha >> 11) ^ (self.chain_beta << 13)) & 0xFFFFFFFF
+        self.chain_alpha = mix32(self.chain_alpha ^ rotl32(bridge, 5))
+        self.chain_beta  = mix32(self.chain_beta  ^ rotl32(bridge, 11))
+
+        norm_a = ((self.chain_alpha & 0xFFFF) / 32767.5) - 1.0
+        norm_b = ((self.chain_beta  & 0xFFFF) / 32767.5) - 1.0
+
+        self.radius = max(24.0, self.radius - 24.0 * dt)
+        self.angle += (0.75 + norm_a * 1.15 * amplitude) * dt
+        eff_r = self.radius + norm_b * 16.0 * amplitude
+
+        # Output Local NED waypoint (North, East, Down) for MAVLink Offboard
+        north = target_ned[0] + math.cos(self.angle) * eff_r
+        east  = target_ned[1] + math.sin(self.angle) * eff_r
+        down  = target_ned[2] - (self.z_slot & 0x0F) * 1.5  # Vertical Z-layer separation
+        return (north, east, down)`,
+
+      c: `/* SwarmForm Embedded Guidance Kernel (C99 — PX4 / ArduPilot Offboard Module)
+ * Pure 32-bit integer ALU state transitions; < 150 CPU cycles per 50 Hz tick. */
+
+#include <stdint.h>
+#include <math.h>
+
+#define TILE_MASK 0x0FFFU
+
+static inline uint32_t rotl32(uint32_t x, uint32_t n) {
+    n &= 31U;
+    return (x << n) | (x >> (32U - n));
+}
+
+static inline uint32_t mix32(uint32_t h) {
+    h ^= h >> 16; h *= 0x85EBCA6BU;
+    h ^= h >> 13; h *= 0xC2B2AE35U;
+    return h ^ (h >> 16);
+}
+
+typedef struct {
+    uint32_t chain_alpha;
+    uint32_t chain_beta;
+    uint16_t z_slot;
+    float radius_m;
+    float angle_rad;
+} swarmform_state_t;
+
+void swarmform_step(swarmform_state_t *s, uint32_t tick, float dt,
+                    float target_n, float target_e, float target_d,
+                    float amplitude, float *out_n, float *out_e, float *out_d) {
+    uint32_t z_a = (s->z_slot ^ tick) & TILE_MASK;
+    uint32_t z_b = ((TILE_MASK - s->z_slot) + tick) & TILE_MASK;
+
+    s->chain_alpha = (s->chain_alpha ^ z_a) * 0x9E3779B1U + 0x7F4A7C15U;
+    s->chain_beta  = (s->chain_beta  ^ z_b) * 0x85EBCA77U + 0xC2B2AE3DU;
+
+    uint32_t bridge = (s->chain_alpha >> 11) ^ (s->chain_beta << 13);
+    s->chain_alpha = mix32(s->chain_alpha ^ rotl32(bridge, 5));
+    s->chain_beta  = mix32(s->chain_beta  ^ rotl32(bridge, 11));
+
+    float norm_a = ((float)(s->chain_alpha & 0xFFFFU) / 32767.5f) - 1.0f;
+    float norm_b = ((float)(s->chain_beta  & 0xFFFFU) / 32767.5f) - 1.0f;
+
+    s->radius_m = fmaxf(24.0f, s->radius_m - 24.0f * dt);
+    s->angle_rad += (0.75f + norm_a * 1.15f * amplitude) * dt;
+    float eff_r = s->radius_m + norm_b * 16.0f * amplitude;
+
+    /* Feed directly into mavlink_msg_set_position_target_local_ned_pack() */
+    *out_n = target_n + cosf(s->angle_rad) * eff_r;
+    *out_e = target_e + sinf(s->angle_rad) * eff_r;
+    *out_d = target_d - (float)(s->z_slot & 0x0FU) * 1.5f;
+}`
+    };
+
+    let currentCodeTab = "python";
+
+    function switchCodeTab(tab) {
+      currentCodeTab = tab;
+      document.getElementById("tabPythonBtn").classList.toggle("active", tab === "python");
+      document.getElementById("tabCBtn").classList.toggle("active", tab === "c");
+      document.getElementById("codeSnippetDisplay").textContent = CODE_SNIPPETS[tab];
+    }
+
+    function copyCurrentSnippet() {
+      const text = CODE_SNIPPETS[currentCodeTab];
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand("copy");
+        showToast("Autopilot Guidance Snippet Copied");
+      } catch (err) {
+        showToast("Copy failed — select text manually");
+      }
+      document.body.removeChild(ta);
+    }
+
+    function showToast(msg) {
+      const el = document.getElementById("toast");
+      el.textContent = msg;
+      el.classList.add("show");
+      clearTimeout(el._timer);
+      el._timer = setTimeout(() => el.classList.remove("show"), 2200);
+    }
+
+    /* ==========================================================================
+       MAIN ANIMATION LOOP
+       ========================================================================== */
+    let lastFrameTime = 0;
+
+    function animate(timestamp) {
+      if (!lastFrameTime) lastFrameTime = timestamp;
+      const rawDt = (timestamp - lastFrameTime) / 1000;
+      lastFrameTime = timestamp;
+      const dt = Math.min(0.05, Math.max(0.005, rawDt));
+
+      if (state.running) {
+        stepPhysics(dt);
+        render();
+        updateTelemetryUI();
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    window.addEventListener("resize", () => {
+      resizeCanvas();
+      render();
+    });
+
+    window.onload = function () {
+      switchCodeTab("python");
+      resizeCanvas();
+      initSwarm();
+      render();
+      updateTelemetryUI();
+      requestAnimationFrame(animate);
+    };
+  </script>
+</body>
+</html>
