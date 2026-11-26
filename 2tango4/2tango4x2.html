@@ -1,0 +1,1905 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>2tango4x2 — Parallel Dual-Chain ARX Cipher & Benchmark</title>
+  <style>
+    /* ==========================================================================
+       DESIGN TOKENS & RESET (Zero External Dependencies, Offline Ready)
+       ========================================================================== */
+    :root {
+      --bg-base: #0a0b10;
+      --bg-surface: #11141f;
+      --bg-card: #151927;
+      --bg-card-hover: #1a2032;
+      --bg-input: #0d1019;
+      --border-subtle: rgba(148, 163, 184, 0.14);
+      --border-glow-cyan: rgba(0, 240, 255, 0.35);
+      --border-glow-purple: rgba(168, 85, 247, 0.35);
+
+      --cyan: #00f0ff;
+      --cyan-dim: rgba(0, 240, 255, 0.14);
+      --purple: #a855f7;
+      --purple-dim: rgba(168, 85, 247, 0.16);
+      --emerald: #10b981;
+      --amber: #f59e0b;
+      --rose: #f43f5e;
+
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --shadow-card: 0 12px 32px -8px rgba(0, 0, 0, 0.65);
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      background-color: var(--bg-base);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      line-height: 1.55;
+      min-height: 100vh;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Ambient geometric grid & radial glows */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background-image:
+        radial-gradient(circle at 15% 12%, rgba(0, 240, 255, 0.08), transparent 36%),
+        radial-gradient(circle at 85% 18%, rgba(168, 85, 247, 0.09), transparent 40%),
+        linear-gradient(rgba(148, 163, 184, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(148, 163, 184, 0.03) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 36px 36px, 36px 36px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 1.25rem;
+    }
+
+    @media (min-width: 768px) {
+      .container {
+        padding: 2rem 2.25rem 3.5rem;
+      }
+    }
+
+    /* ==========================================================================
+       HEADER & HERO BANNER
+       ========================================================================== */
+    .header {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      padding: 1.5rem;
+      background: linear-gradient(145deg, rgba(21, 25, 39, 0.94), rgba(13, 16, 25, 0.96));
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-card);
+      margin-bottom: 1.75rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .header::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--cyan), var(--purple), var(--cyan));
+    }
+
+    @media (min-width: 860px) {
+      .header {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1.75rem 2rem;
+      }
+    }
+
+    .brand-block {
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+    }
+
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.25rem 0.65rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      font-family: var(--font-mono);
+    }
+
+    .badge-cyan {
+      background: var(--cyan-dim);
+      color: var(--cyan);
+      border: 1px solid var(--border-glow-cyan);
+    }
+
+    .badge-purple {
+      background: var(--purple-dim);
+      color: #d8b4fe;
+      border: 1px solid var(--border-glow-purple);
+    }
+
+    .badge-green {
+      background: rgba(16, 185, 129, 0.14);
+      color: #6ee7b7;
+      border: 1px solid rgba(16, 185, 129, 0.35);
+    }
+
+    h1 {
+      font-size: clamp(1.75rem, 3.6vw, 2.55rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      background: linear-gradient(100deg, #ffffff 15%, var(--cyan) 55%, var(--purple) 95%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .subtitle {
+      color: var(--text-secondary);
+      font-size: 0.96rem;
+      max-width: 68ch;
+    }
+
+    .spec-pills {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(120px, 1fr));
+      gap: 0.65rem;
+    }
+
+    .spec-pill {
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 0.65rem 0.9rem;
+    }
+
+    .spec-pill-label {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+
+    .spec-pill-val {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      margin-top: 0.1rem;
+    }
+
+    /* ==========================================================================
+       SECTION LAYOUT & CARDS
+       ========================================================================== */
+    .section-title-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-size: 1.2rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    .section-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      border-radius: 7px;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--cyan-dim), var(--purple-dim));
+      color: var(--cyan);
+      border: 1px solid var(--border-glow-cyan);
+    }
+
+    .grid-2col {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.35rem;
+      margin-bottom: 2rem;
+    }
+
+    @media (min-width: 980px) {
+      .grid-2col {
+        grid-template-columns: 1.15fr 0.85fr;
+      }
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 1.35rem;
+      box-shadow: var(--shadow-card);
+    }
+
+    @media (min-width: 768px) {
+      .card {
+        padding: 1.6rem;
+      }
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-bottom: 1.15rem;
+      padding-bottom: 0.8rem;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .card-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    /* ==========================================================================
+       FORM CONTROLS & BUTTONS (Touch-Friendly >= 44px Targets)
+       ========================================================================== */
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    .label-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      margin-bottom: 0.4rem;
+    }
+
+    label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      letter-spacing: 0.02em;
+    }
+
+    .hint-tag {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+
+    input[type="text"],
+    textarea,
+    select {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      padding: 0.7rem 0.85rem;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    textarea {
+      font-family: var(--font-sans);
+      min-height: 86px;
+      resize: vertical;
+      line-height: 1.45;
+    }
+
+    textarea.mono-box {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--cyan);
+    }
+
+    input[type="text"]:focus,
+    textarea:focus,
+    select:focus {
+      outline: none;
+      border-color: var(--cyan);
+      box-shadow: 0 0 0 3px rgba(0, 240, 255, 0.14);
+    }
+
+    .input-with-btn {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .input-with-btn input {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .controls-row {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0.85rem;
+    }
+
+    @media (min-width: 560px) {
+      .controls-row {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+      min-height: 42px;
+      padding: 0.6rem 1rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.84rem;
+      font-weight: 700;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: transform 0.12s ease, box-shadow 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+      user-select: none;
+      white-space: nowrap;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn-cyan {
+      background: linear-gradient(135deg, #00d8e6, #00a8ff);
+      color: #041019;
+      box-shadow: 0 4px 18px rgba(0, 240, 255, 0.25);
+    }
+
+    .btn-cyan:hover {
+      box-shadow: 0 6px 24px rgba(0, 240, 255, 0.4);
+    }
+
+    .btn-purple {
+      background: linear-gradient(135deg, #a855f7, #7e22ce);
+      color: #ffffff;
+      box-shadow: 0 4px 18px rgba(168, 85, 247, 0.28);
+    }
+
+    .btn-purple:hover {
+      box-shadow: 0 6px 24px rgba(168, 85, 247, 0.42);
+    }
+
+    .btn-ghost {
+      background: var(--bg-input);
+      color: var(--text-primary);
+      border-color: var(--border-subtle);
+    }
+
+    .btn-ghost:hover {
+      border-color: var(--cyan);
+      color: var(--cyan);
+    }
+
+    .btn-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      margin-top: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .btn-group .btn {
+      flex: 1 1 auto;
+    }
+
+    /* Inline notification banner (replaces alert()) */
+    .status-toast {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.65rem 0.9rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.82rem;
+      font-family: var(--font-mono);
+      margin-bottom: 0.9rem;
+      border: 1px solid var(--border-glow-cyan);
+      background: rgba(0, 240, 255, 0.08);
+      color: var(--cyan);
+    }
+
+    .status-toast.error {
+      border-color: rgba(244, 63, 94, 0.45);
+      background: rgba(244, 63, 94, 0.12);
+      color: #fda4af;
+    }
+
+    .status-toast.visible {
+      display: flex;
+    }
+
+    /* ==========================================================================
+       DUAL-CHAIN & SIMULTANEOUS BLOCK PIPELINE VISUALIZER
+       ========================================================================== */
+    .pipeline-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .block-unit {
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 0.95rem;
+      position: relative;
+    }
+
+    .block-unit.block-n {
+      border-left: 3px solid var(--cyan);
+    }
+
+    .block-unit.block-n1 {
+      border-left: 3px solid var(--purple);
+    }
+
+    .block-unit-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.65rem;
+    }
+
+    .block-tag {
+      font-family: var(--font-mono);
+      font-size: 0.76rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+
+    .lane-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0.65rem;
+    }
+
+    @media (min-width: 520px) {
+      .lane-grid {
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+      }
+    }
+
+    .lane-box {
+      background: rgba(21, 25, 39, 0.9);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 0.65rem;
+    }
+
+    .lane-box.alpha {
+      border-top: 2px solid var(--cyan);
+    }
+
+    .lane-box.beta {
+      border-top: 2px solid var(--purple);
+    }
+
+    .lane-title {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      margin-bottom: 0.4rem;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .lane-alpha-text { color: var(--cyan); }
+    .lane-beta-text { color: #d8b4fe; }
+
+    .word-chips {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.35rem;
+    }
+
+    .word-chip {
+      background: #080a10;
+      border: 1px solid rgba(148, 163, 184, 0.12);
+      border-radius: 5px;
+      padding: 0.28rem 0.4rem;
+      font-family: var(--font-mono);
+      font-size: 0.71rem;
+      color: var(--text-primary);
+      text-align: center;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .bridge-node {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 0.4rem 0.55rem;
+      border-radius: var(--radius-sm);
+      background: linear-gradient(180deg, rgba(0, 240, 255, 0.12), rgba(168, 85, 247, 0.14));
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      text-align: center;
+    }
+
+    .feedforward-bar {
+      margin-top: 0.65rem;
+      padding: 0.45rem 0.65rem;
+      border-radius: 6px;
+      background: rgba(16, 185, 129, 0.08);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: #6ee7b7;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+
+    /* ==========================================================================
+       BENCHMARK SECTION
+       ========================================================================== */
+    .bench-card {
+      margin-bottom: 2rem;
+    }
+
+    .bench-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 1rem;
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      margin-bottom: 1.35rem;
+    }
+
+    .bench-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .bench-controls select {
+      width: auto;
+      min-width: 150px;
+    }
+
+    .chart-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+
+    @media (min-width: 820px) {
+      .chart-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .chart-box {
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 1.1rem;
+    }
+
+    .chart-box-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      margin-bottom: 0.9rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .bar-row {
+      margin-bottom: 0.85rem;
+    }
+
+    .bar-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .bar-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-size: 0.8rem;
+      margin-bottom: 0.3rem;
+      font-family: var(--font-mono);
+    }
+
+    .bar-track {
+      width: 100%;
+      height: 14px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .bar-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 999px;
+      transition: width 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .fill-tango2 {
+      background: linear-gradient(90deg, #00f0ff, #38bdf8);
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.45);
+    }
+
+    .fill-tango1 {
+      background: linear-gradient(90deg, #a855f7, #c084fc);
+    }
+
+    .fill-chacha {
+      background: linear-gradient(90deg, #64748b, #94a3b8);
+    }
+
+    /* Responsive Metrics Table */
+    .table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      background: var(--bg-input);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.84rem;
+      text-align: left;
+    }
+
+    th, td {
+      padding: 0.85rem 1rem;
+      border-bottom: 1px solid var(--border-subtle);
+      white-space: nowrap;
+    }
+
+    th {
+      background: rgba(21, 25, 39, 0.85);
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    tbody tr:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .mono-num {
+      font-family: var(--font-mono);
+      font-weight: 600;
+    }
+
+    .highlight-row {
+      background: rgba(0, 240, 255, 0.04);
+    }
+
+    /* ==========================================================================
+       ARCHITECTURAL BREAKDOWN CARDS
+       ========================================================================== */
+    .arch-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.15rem;
+    }
+
+    @media (min-width: 780px) {
+      .arch-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    .arch-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 1.35rem;
+      box-shadow: var(--shadow-card);
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+
+    .arch-card h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .arch-card p {
+      font-size: 0.88rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    .formula-pill {
+      margin-top: auto;
+      padding: 0.55rem 0.75rem;
+      border-radius: var(--radius-sm);
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--cyan);
+      overflow-x: auto;
+    }
+
+    footer {
+      margin-top: 2.5rem;
+      padding-top: 1.25rem;
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 0.75rem;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      font-family: var(--font-mono);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- ========================================================================
+         HERO HEADER
+         ======================================================================== -->
+    <header class="header">
+      <div class="brand-block">
+        <div class="badge-row">
+          <span class="badge badge-cyan">ARX Dual-Chain x2</span>
+          <span class="badge badge-purple">64-Byte Dual-Block Step</span>
+          <span class="badge badge-green">Post-Quantum 256-Bit</span>
+        </div>
+        <h1>2tango4x2 Stream Cipher</h1>
+        <p class="subtitle">
+          Parallelized dual-chain ARX symmetric encryption engine executing <strong>Lane Alpha + Lane Beta</strong> cross-coupling across simultaneous counter pipelines (<code>ctr</code> &amp; <code>ctr+1</code>) with feed-forward state locking.
+        </p>
+      </div>
+      <div class="spec-pills">
+        <div class="spec-pill">
+          <div class="spec-pill-label">Key / Nonce</div>
+          <div class="spec-pill-val">256b / 96b</div>
+        </div>
+        <div class="spec-pill">
+          <div class="spec-pill-label">Parallel Output</div>
+          <div class="spec-pill-val">64 B / step</div>
+        </div>
+        <div class="spec-pill">
+          <div class="spec-pill-label">Default Rounds</div>
+          <div class="spec-pill-val">20 (10x2)</div>
+        </div>
+        <div class="spec-pill">
+          <div class="spec-pill-label">Decrypt Parity</div>
+          <div class="spec-pill-val">1:1 XOR</div>
+        </div>
+      </div>
+    </header>
+
+    <!-- ========================================================================
+         SECTION 1: INTERACTIVE CIPHER WORKBENCH & PIPELINE VISUALIZER
+         ======================================================================== -->
+    <div class="section-title-bar">
+      <h2 class="section-title"><span class="section-num">01</span> Interactive 2tango4x2 Cipher Workbench</h2>
+      <span class="hint-tag">Deterministic 32-bit Unsigned ARX (>>> 0) &bull; Zero Dependencies</span>
+    </div>
+
+    <div class="grid-2col">
+      <!-- Left Card: Encryption / Decryption Controls -->
+      <section class="card" aria-label="2tango4x2 Cipher Controls">
+        <div class="card-header">
+          <span class="card-title">Keystream &amp; Round-Trip Engine</span>
+          <span class="badge badge-cyan" id="activeRoundBadge">20 Rounds Active</span>
+        </div>
+
+        <div id="statusToast" class="status-toast" role="status" aria-live="polite">
+          <span id="statusText">Ready.</span>
+        </div>
+
+        <div class="form-group">
+          <div class="label-row">
+            <label for="keyInput">256-Bit Master Key (64 Hex Characters)</label>
+            <span class="hint-tag" id="keyLenHint">64 / 64 hex</span>
+          </div>
+          <div class="input-with-btn">
+            <input type="text" id="keyInput" maxlength="64" spellcheck="false" aria-label="256-bit hex key" />
+            <button type="button" class="btn btn-ghost" id="genKeyBtn">Random Key</button>
+          </div>
+        </div>
+
+        <div class="controls-row">
+          <div class="form-group">
+            <div class="label-row">
+              <label for="nonceInput">96-Bit Nonce (24 Hex Chars)</label>
+            </div>
+            <div class="input-with-btn">
+              <input type="text" id="nonceInput" maxlength="24" spellcheck="false" aria-label="96-bit hex nonce" />
+              <button type="button" class="btn btn-ghost" id="genNonceBtn">Random</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <div class="label-row">
+              <label for="roundSelect">Round Depth</label>
+              <span class="hint-tag">Full Diffusion</span>
+            </div>
+            <select id="roundSelect" aria-label="Round Count">
+              <option value="20" selected>20 Rounds (10 Full Cross-Cycles — Recommended)</option>
+              <option value="10">10 Rounds (5 Full Cross-Cycles — High Speed)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <div class="label-row">
+            <label for="plaintextInput">Plaintext Input (UTF-8)</label>
+            <span class="hint-tag" id="ptByteCount">0 bytes</span>
+          </div>
+          <textarea id="plaintextInput" placeholder="Enter message to encrypt with 2tango4x2...">2tango4x2 runs Lane Alpha and Lane Beta across simultaneous counter pipelines (ctr and ctr+1) for post-quantum symmetric speed.</textarea>
+        </div>
+
+        <div class="btn-group">
+          <button type="button" class="btn btn-cyan" id="encryptBtn">Encrypt &rarr; Hex</button>
+          <button type="button" class="btn btn-purple" id="decryptBtn">&larr; Decrypt Hex</button>
+          <button type="button" class="btn btn-ghost" id="copyHexBtn">Copy Ciphertext</button>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 0;">
+          <div class="label-row">
+            <label for="ciphertextOutput">Ciphertext Output (Hexadecimal Stream)</label>
+            <span class="hint-tag" id="ctByteCount">0 bytes</span>
+          </div>
+          <textarea id="ciphertextOutput" class="mono-box" placeholder="Encrypted hex ciphertext appears here (or paste hex here to decrypt)..."></textarea>
+        </div>
+      </section>
+
+      <!-- Right Card: Dual-Chain & Dual-Block Live Pipeline Visualizer -->
+      <aside class="card" aria-label="Dual-Chain State Visualizer">
+        <div class="card-header">
+          <span class="card-title">Simultaneous Pipeline State (Step 0)</span>
+          <span class="badge badge-purple">64 Bytes / Step</span>
+        </div>
+
+        <p style="font-size: 0.83rem; color: var(--text-secondary); margin-bottom: 0.95rem;">
+          Live 32-bit hexadecimal register snapshot after final round &amp; feed-forward addition (<code>S0 + S_final mod 2&sup3;&sup2;</code>) for both simultaneous counter blocks:
+        </p>
+
+        <div class="pipeline-stack">
+          <!-- Block N (ctr = 0) -->
+          <div class="block-unit block-n">
+            <div class="block-unit-top">
+              <span class="block-tag lane-alpha-text">PIPELINE A &bull; BLOCK N (ctr = 0)</span>
+              <span class="hint-tag">Bytes 00..31</span>
+            </div>
+            <div class="lane-grid">
+              <div class="lane-box alpha">
+                <div class="lane-title">
+                  <span class="lane-alpha-text">Lane Alpha</span>
+                  <span class="hint-tag">W0..W3</span>
+                </div>
+                <div class="word-chips" id="visA_alpha">
+                  <div class="word-chip">00000000</div>
+                  <div class="word-chip">00000000</div>
+                  <div class="word-chip">00000000</div>
+                  <div class="word-chip">00000000</div>
+                </div>
+              </div>
+
+              <div class="bridge-node" title="Cross-Lane ARX Bridge">
+                <span>&harr;</span>
+                <span>BRIDGE</span>
+                <span>&lll;/&oplus;</span>
+              </div>
+
+              <div class="lane-box beta">
+                <div class="lane-title">
+                  <span class="lane-beta-text">Lane Beta</span>
+                  <span class="hint-tag">W4..W7</span>
+                </div>
+                <div class="word-chips" id="visA_beta">
+                  <div class="word-chip">00000000</div>
+                  <div class="word-chip">00000000</div>
+                  <div class="word-chip">00000000</div>
+                  <div class="word-chip">00000000</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Block N+1 (ctr = 1) -->
+          <div class="block-unit block-n1">
+            <div class="block-unit-top">
+              <span class="block-tag lane-beta-text">PIPELINE B &bull; BLOCK N+1 (ctr = 1)</span>
+              <span class="hint-tag">Bytes 32..63</span>
+            </div>
+            <div class="lane-grid">
+              <div class="lane-box alpha">
+                <div class="lane-title">
+                  <span class="lane-alpha-text">Lane Alpha</span>
+                  <span class="hint-tag">W0..W3</span>
+                </div>
+                <div class="word-chips" id="visB_alpha">
+                  <div class="word-chip">00000000</div>
+                  <div class="word-chip">00000000</div>
+                  <div class="word-chip">00000000</div>
+                  <div class="word-chip">00000000</div>
+                </div>
+              </div>
+
+              <div class="bridge-node" title="Cross-Lane ARX Bridge">
+                <span>&harr;</span>
+                <span>BRIDGE</span>
+                <span>&lll;/&oplus;</span>
+              </div>
+
+              <div class="lane-box beta">
+                <div class="lane-title">
+                  <span class="lane-beta-text">Lane Beta</span>
+                  <span class="hint-tag">W4..W7</span>
+                </div>
+                <div class="word-chips" id="visB_beta">
+                  <div class="word-chip">00000000</div>
+                  <div class="word-chip">00000000</div>
+                  <div class="word-chip">00000000</div>
+                  <div class="word-chip">00000000</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="feedforward-bar">
+            <span>Feed-Forward Lock: Z = (S&#8320; + S&#8345;) mod 2&sup3;&sup2;</span>
+            <span>Non-Invertible &check;</span>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- ========================================================================
+         SECTION 2: LIVE IN-BROWSER BENCHMARK SUITE
+         ======================================================================== -->
+    <div class="section-title-bar">
+      <h2 class="section-title"><span class="section-num">02</span> Live In-Browser Benchmark Suite</h2>
+      <span class="hint-tag">Apples-to-Apples Pure JS Execution &bull; performance.now()</span>
+    </div>
+
+    <section class="card bench-card" aria-label="Live Cipher Benchmark Suite">
+      <div class="bench-toolbar">
+        <div>
+          <div style="font-weight: 700; font-size: 0.95rem;">2tango4x2 vs. 2tango4 vs. ChaCha20 (RFC 8439)</div>
+          <div style="font-size: 0.8rem; color: var(--text-secondary);">
+            Executes real keystream generation + XOR encryption &amp; decryption over random byte buffers in your browser.
+          </div>
+        </div>
+        <div class="bench-controls">
+          <select id="payloadSizeSelect" aria-label="Benchmark Payload Size">
+            <option value="65536">64 KB Payload</option>
+            <option value="262144" selected>256 KB Payload</option>
+            <option value="1048576">1 MB Payload</option>
+            <option value="4194304">4 MB Payload</option>
+          </select>
+          <button type="button" class="btn btn-cyan" id="runBenchBtn">Run Live Benchmark</button>
+        </div>
+      </div>
+
+      <!-- Visual Throughput Bar Charts -->
+      <div class="chart-grid">
+        <div class="chart-box">
+          <div class="chart-box-title">
+            <span>Encryption Throughput (MB/s)</span>
+            <span class="hint-tag">Higher is Faster</span>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-meta">
+              <span class="lane-alpha-text" style="font-weight: 700;">2tango4x2 (20R &bull; Dual-Block 64B)</span>
+              <span id="encVal_t2">— MB/s</span>
+            </div>
+            <div class="bar-track"><div class="bar-fill fill-tango2" id="encBar_t2"></div></div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-meta">
+              <span class="lane-beta-text" style="font-weight: 700;">2tango4 (20R &bull; Single-Block 32B)</span>
+              <span id="encVal_t1">— MB/s</span>
+            </div>
+            <div class="bar-track"><div class="bar-fill fill-tango1" id="encBar_t1"></div></div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-meta">
+              <span style="color: var(--text-secondary); font-weight: 700;">ChaCha20 (20R &bull; RFC 8439 64B)</span>
+              <span id="encVal_cc">— MB/s</span>
+            </div>
+            <div class="bar-track"><div class="bar-fill fill-chacha" id="encBar_cc"></div></div>
+          </div>
+        </div>
+
+        <div class="chart-box">
+          <div class="chart-box-title">
+            <span>Decryption Throughput (MB/s)</span>
+            <span class="hint-tag">1:1 Symmetric XOR Parity</span>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-meta">
+              <span class="lane-alpha-text" style="font-weight: 700;">2tango4x2 (20R &bull; Dual-Block 64B)</span>
+              <span id="decVal_t2">— MB/s</span>
+            </div>
+            <div class="bar-track"><div class="bar-fill fill-tango2" id="decBar_t2"></div></div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-meta">
+              <span class="lane-beta-text" style="font-weight: 700;">2tango4 (20R &bull; Single-Block 32B)</span>
+              <span id="decVal_t1">— MB/s</span>
+            </div>
+            <div class="bar-track"><div class="bar-fill fill-tango1" id="decBar_t1"></div></div>
+          </div>
+
+          <div class="bar-row">
+            <div class="bar-meta">
+              <span style="color: var(--text-secondary); font-weight: 700;">ChaCha20 (20R &bull; RFC 8439 64B)</span>
+              <span id="decVal_cc">— MB/s</span>
+            </div>
+            <div class="bar-track"><div class="bar-fill fill-chacha" id="decBar_cc"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Detailed Metrics Table -->
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Cipher Engine</th>
+              <th>Architecture</th>
+              <th>Encrypt (MB/s)</th>
+              <th>Decrypt (MB/s)</th>
+              <th>ARX Ops / Byte</th>
+              <th>Total Latency</th>
+              <th>Speedup vs ChaCha20</th>
+            </tr>
+          </thead>
+          <tbody id="benchTableBody">
+            <tr class="highlight-row">
+              <td class="mono-num lane-alpha-text">2tango4x2 (20R)</td>
+              <td>Dual-Lane + Dual-Block (64 B/step)</td>
+              <td class="mono-num" id="tbl_enc_t2">—</td>
+              <td class="mono-num" id="tbl_dec_t2">—</td>
+              <td class="mono-num">17.5 ops/B</td>
+              <td class="mono-num" id="tbl_lat_t2">—</td>
+              <td class="mono-num lane-alpha-text" id="tbl_spd_t2">—</td>
+            </tr>
+            <tr>
+              <td class="mono-num lane-beta-text">2tango4 (20R)</td>
+              <td>Dual-Lane Single-Block (32 B/step)</td>
+              <td class="mono-num" id="tbl_enc_t1">—</td>
+              <td class="mono-num" id="tbl_dec_t1">—</td>
+              <td class="mono-num">17.5 ops/B</td>
+              <td class="mono-num" id="tbl_lat_t1">—</td>
+              <td class="mono-num lane-beta-text" id="tbl_spd_t1">—</td>
+            </tr>
+            <tr>
+              <td class="mono-num" style="color: var(--text-secondary);">ChaCha20 (RFC 8439)</td>
+              <td>4&times;4 Matrix Single-Block (64 B/step)</td>
+              <td class="mono-num" id="tbl_enc_cc">—</td>
+              <td class="mono-num" id="tbl_dec_cc">—</td>
+              <td class="mono-num">15.0 ops/B</td>
+              <td class="mono-num" id="tbl_lat_cc">—</td>
+              <td class="mono-num">1.00&times; (Baseline)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ========================================================================
+         SECTION 3: ARCHITECTURAL BREAKDOWN
+         ======================================================================== -->
+    <div class="section-title-bar">
+      <h2 class="section-title"><span class="section-num">03</span> Architectural Breakdown</h2>
+      <span class="hint-tag">Dual-Chain Parallelism &amp; Cryptographic Margin</span>
+    </div>
+
+    <section class="arch-grid" aria-label="Architectural Breakdown">
+      <article class="arch-card">
+        <h3><span class="lane-alpha-text">&#9670;</span> Dual-Axis Parallel Execution</h3>
+        <p>
+          <code>2tango4x2</code> parallelizes across two levels simultaneously: <strong>intra-block dual chains</strong> (<code>Lane Alpha</code> and <code>Lane Beta</code> running independent 32-bit ARX quarter-steps before converging at a synchronized cross-lane bridge) and <strong>inter-block counter pipelines</strong> (<code>ctr</code> and <code>ctr+1</code> advancing together to emit 64 keystream bytes per step, halving loop overhead and keeping CPU execution ports saturated).
+        </p>
+        <div class="formula-pill">Step(K, N, ctr) &rarr; Block(ctr) &parallel; Block(ctr + 1) = 64 Bytes</div>
+      </article>
+
+      <article class="arch-card">
+        <h3><span class="lane-beta-text">&#9670;</span> 1:1 Encryption / Decryption Parity</h3>
+        <p>
+          Because <code>2tango4x2</code> operates as a counter-mode ARX keystream generator, decryption never needs to invert modular additions or cross-lane rotations. Both directions evaluate the exact same forward keystream function and XOR it against the payload—giving <strong>identical throughput and parallel block scaling</strong> for encryption and decryption.
+        </p>
+        <div class="formula-pill">C = P &oplus; KS(K, N, ctr) &nbsp;&hArr;&nbsp; P = C &oplus; KS(K, N, ctr)</div>
+      </article>
+
+      <article class="arch-card">
+        <h3><span style="color: var(--emerald);">&#9670;</span> 20 Rounds + Feed-Forward Lock</h3>
+        <p>
+          Running <strong>20 rounds</strong> yields <strong>10 complete cross-lane mixing cycles</strong>—matching ChaCha20's diffusion depth so carry bits propagate across all 8 state words ten times over. Adding the initial state back at the end (<code>Z = S&#8320; + S&#8322;&#8320; mod 2&sup3;&sup2;</code>) makes the block transform non-invertible, preventing backward state recovery while preserving 256-bit post-quantum strength against Grover's search.
+        </p>
+        <div class="formula-pill">Z[i] = (S&#8320;[i] + S&#8322;&#8320;[i]) &gt;&gt;&gt; 0 &nbsp;(i &isin; 0..7)</div>
+      </article>
+    </section>
+
+    <footer>
+      <span>2tango4x2 &bull; Dual-Lane Parallel ARX Stream Cipher Workbench</span>
+      <span>Standalone Offline Build &bull; 32-Bit Unsigned Arithmetic</span>
+    </footer>
+  </div>
+
+  <script>
+    /* ==========================================================================
+       2TANGO4X2, 2TANGO4 & CHACHA20 PURE-JS CRYPTOGRAPHIC CORE
+       All arithmetic strictly enforces 32-bit unsigned semantics via (>>> 0).
+       ========================================================================== */
+
+    // Fast 32-bit left rotation
+    function rotl32(v, c) {
+      return ((v << c) | (v >>> (32 - c))) >>> 0;
+    }
+
+    // Domain-separation constants for Lane Alpha and Lane Beta ("2tan", "go4x", "2par", "arx!")
+    const TANGO_CONST_A0 = 0x3274616e;
+    const TANGO_CONST_A1 = 0x676f3478;
+    const TANGO_CONST_B0 = 0x32706172;
+    const TANGO_CONST_B1 = 0x61727821;
+
+    /**
+     * Single-block 2tango4 core (256-bit state = 8 x 32-bit words, 32 bytes output)
+     * Lane Alpha: state[0..3]
+     * Lane Beta : state[4..7]
+     * Each round executes parallel ARX updates on Alpha & Beta, followed by
+     * an asymmetric cross-lane bridge so both lanes diffuse into each other.
+     */
+    function tango4BlockWords(keyWords, nonceWords, counter, rounds) {
+      // Initial state S0
+      const s0_0 = (TANGO_CONST_A0 ^ keyWords[0]) >>> 0;
+      const s0_1 = (keyWords[1] + nonceWords[0]) >>> 0;
+      const s0_2 = (keyWords[2] ^ counter) >>> 0;
+      const s0_3 = (TANGO_CONST_A1 + keyWords[3]) >>> 0;
+
+      const s0_4 = (TANGO_CONST_B0 ^ keyWords[4]) >>> 0;
+      const s0_5 = (keyWords[5] + nonceWords[1]) >>> 0;
+      const s0_6 = (keyWords[6] ^ nonceWords[2]) >>> 0;
+      const s0_7 = (TANGO_CONST_B1 + ((keyWords[7] ^ counter) >>> 0)) >>> 0;
+
+      let a0 = s0_0, a1 = s0_1, a2 = s0_2, a3 = s0_3;
+      let b0 = s0_4, b1 = s0_5, b2 = s0_6, b3 = s0_7;
+
+      for (let r = 0; r < rounds; r++) {
+        // --- Lane Alpha ARX step ---
+        a0 = (a0 + a1) >>> 0; a3 = rotl32(a3 ^ a0, 16);
+        a2 = (a2 + a3) >>> 0; a1 = rotl32(a1 ^ a2, 12);
+        a0 = (a0 + a1) >>> 0; a3 = rotl32(a3 ^ a0, 8);
+        a2 = (a2 + a3) >>> 0; a1 = rotl32(a1 ^ a2, 7);
+
+        // --- Lane Beta ARX step (distinct rotation schedule to prevent symmetry) ---
+        b0 = (b0 + b1) >>> 0; b3 = rotl32(b3 ^ b0, 15);
+        b2 = (b2 + b3) >>> 0; b1 = rotl32(b1 ^ b2, 11);
+        b0 = (b0 + b1) >>> 0; b3 = rotl32(b3 ^ b0, 9);
+        b2 = (b2 + b3) >>> 0; b1 = rotl32(b1 ^ b2, 6);
+
+        // --- Synchronized Cross-Lane Bridge (couples Alpha <-> Beta with round constant) ---
+        const rc = ((r + 1) * 0x9e3779b9) >>> 0;
+        const mixA = rotl32((a1 ^ b2) >>> 0, 5);
+        const mixB = rotl32((b1 ^ a2) >>> 0, 13);
+
+        a0 = (a0 + mixB + rc) >>> 0;
+        b0 = (b0 + mixA + (rc ^ 0x5bd1e995)) >>> 0;
+        a3 = (a3 ^ b0) >>> 0;
+        b3 = (b3 ^ a0) >>> 0;
+      }
+
+      // Feed-forward addition (S0 + S_final mod 2^32) prevents backward state inversion
+      return [
+        (a0 + s0_0) >>> 0,
+        (a1 + s0_1) >>> 0,
+        (a2 + s0_2) >>> 0,
+        (a3 + s0_3) >>> 0,
+        (b0 + s0_4) >>> 0,
+        (b1 + s0_5) >>> 0,
+        (b2 + s0_6) >>> 0,
+        (b3 + s0_7) >>> 0
+      ];
+    }
+
+    /**
+     * 2tango4x2 Parallel Dual-Block Engine (64 bytes per step)
+     * Advances Pipeline A (ctr) and Pipeline B (ctr + 1) simultaneously in scalar registers,
+     * keeping both dual-lane pipelines unrolled side-by-side for maximum ILP throughput.
+     */
+    function tango4x2Crypt(inputBytes, keyWords, nonceWords, rounds, inspectFirstStep) {
+      const len = inputBytes.length;
+      const output = new Uint8Array(len);
+      const outView = new DataView(output.buffer);
+      const inView = new DataView(inputBytes.buffer, inputBytes.byteOffset, inputBytes.byteLength);
+
+      const k0 = keyWords[0], k1 = keyWords[1], k2 = keyWords[2], k3 = keyWords[3];
+      const k4 = keyWords[4], k5 = keyWords[5], k6 = keyWords[6], k7 = keyWords[7];
+      const n0 = nonceWords[0], n1 = nonceWords[1], n2 = nonceWords[2];
+
+      let offset = 0;
+      let ctr = 0;
+      let step0Snapshot = null;
+
+      while (offset < len) {
+        const ctrA = ctr >>> 0;
+        const ctrB = (ctr + 1) >>> 0;
+        ctr = (ctr + 2) >>> 0;
+
+        // Pipeline A Initial State (ctr)
+        const sA0 = (TANGO_CONST_A0 ^ k0) >>> 0;
+        const sA1 = (k1 + n0) >>> 0;
+        const sA2 = (k2 ^ ctrA) >>> 0;
+        const sA3 = (TANGO_CONST_A1 + k3) >>> 0;
+        const sA4 = (TANGO_CONST_B0 ^ k4) >>> 0;
+        const sA5 = (k5 + n1) >>> 0;
+        const sA6 = (k6 ^ n2) >>> 0;
+        const sA7 = (TANGO_CONST_B1 + ((k7 ^ ctrA) >>> 0)) >>> 0;
+
+        // Pipeline B Initial State (ctr + 1)
+        const sB0 = (TANGO_CONST_A0 ^ k0) >>> 0;
+        const sB1 = (k1 + n0) >>> 0;
+        const sB2 = (k2 ^ ctrB) >>> 0;
+        const sB3 = (TANGO_CONST_A1 + k3) >>> 0;
+        const sB4 = (TANGO_CONST_B0 ^ k4) >>> 0;
+        const sB5 = (k5 + n1) >>> 0;
+        const sB6 = (k6 ^ n2) >>> 0;
+        const sB7 = (TANGO_CONST_B1 + ((k7 ^ ctrB) >>> 0)) >>> 0;
+
+        let a0 = sA0, a1 = sA1, a2 = sA2, a3 = sA3;
+        let b0 = sA4, b1 = sA5, b2 = sA6, b3 = sA7;
+
+        let c0 = sB0, c1 = sB1, c2 = sB2, c3 = sB3;
+        let d0 = sB4, d1 = sB5, d2 = sB6, d3 = sB7;
+
+        for (let r = 0; r < rounds; r++) {
+          const rcA = ((r + 1) * 0x9e3779b9) >>> 0;
+          const rcB = (rcA ^ 0x5bd1e995) >>> 0;
+
+          // Pipeline A: Lane Alpha & Lane Beta simultaneous ARX
+          a0 = (a0 + a1) >>> 0; a3 = rotl32(a3 ^ a0, 16);
+          b0 = (b0 + b1) >>> 0; b3 = rotl32(b3 ^ b0, 15);
+          a2 = (a2 + a3) >>> 0; a1 = rotl32(a1 ^ a2, 12);
+          b2 = (b2 + b3) >>> 0; b1 = rotl32(b1 ^ b2, 11);
+
+          a0 = (a0 + a1) >>> 0; a3 = rotl32(a3 ^ a0, 8);
+          b0 = (b0 + b1) >>> 0; b3 = rotl32(b3 ^ b0, 9);
+          a2 = (a2 + a3) >>> 0; a1 = rotl32(a1 ^ a2, 7);
+          b2 = (b2 + b3) >>> 0; b1 = rotl32(b1 ^ b2, 6);
+
+          // Pipeline B: Lane Alpha & Lane Beta simultaneous ARX
+          c0 = (c0 + c1) >>> 0; c3 = rotl32(c3 ^ c0, 16);
+          d0 = (d0 + d1) >>> 0; d3 = rotl32(d3 ^ d0, 15);
+          c2 = (c2 + c3) >>> 0; c1 = rotl32(c1 ^ c2, 12);
+          d2 = (d2 + d3) >>> 0; d1 = rotl32(d1 ^ d2, 11);
+
+          c0 = (c0 + c1) >>> 0; c3 = rotl32(c3 ^ c0, 8);
+          d0 = (d0 + d1) >>> 0; d3 = rotl32(d3 ^ d0, 9);
+          c2 = (c2 + c3) >>> 0; c1 = rotl32(c1 ^ c2, 7);
+          d2 = (d2 + d3) >>> 0; d1 = rotl32(d1 ^ d2, 6);
+
+          // Cross-lane bridges for Pipeline A and Pipeline B
+          const mixA1 = rotl32((a1 ^ b2) >>> 0, 5);
+          const mixA2 = rotl32((b1 ^ a2) >>> 0, 13);
+          a0 = (a0 + mixA2 + rcA) >>> 0;
+          b0 = (b0 + mixA1 + rcB) >>> 0;
+          a3 = (a3 ^ b0) >>> 0;
+          b3 = (b3 ^ a0) >>> 0;
+
+          const mixB1 = rotl32((c1 ^ d2) >>> 0, 5);
+          const mixB2 = rotl32((d1 ^ c2) >>> 0, 13);
+          c0 = (c0 + mixB2 + rcA) >>> 0;
+          d0 = (d0 + mixB1 + rcB) >>> 0;
+          c3 = (c3 ^ d0) >>> 0;
+          d3 = (d3 ^ c0) >>> 0;
+        }
+
+        // Feed-forward addition for all 16 words (64 bytes total)
+        const z0 = (a0 + sA0) >>> 0, z1 = (a1 + sA1) >>> 0, z2 = (a2 + sA2) >>> 0, z3 = (a3 + sA3) >>> 0;
+        const z4 = (b0 + sA4) >>> 0, z5 = (b1 + sA5) >>> 0, z6 = (b2 + sA6) >>> 0, z7 = (b3 + sA7) >>> 0;
+
+        const z8  = (c0 + sB0) >>> 0, z9  = (c1 + sB1) >>> 0, z10 = (c2 + sB2) >>> 0, z11 = (c3 + sB3) >>> 0;
+        const z12 = (d0 + sB4) >>> 0, z13 = (d1 + sB5) >>> 0, z14 = (d2 + sB6) >>> 0, z15 = (d3 + sB7) >>> 0;
+
+        if (inspectFirstStep && step0Snapshot === null) {
+          step0Snapshot = {
+            blockA: { alpha: [z0, z1, z2, z3], beta: [z4, z5, z6, z7] },
+            blockB: { alpha: [z8, z9, z10, z11], beta: [z12, z13, z14, z15] }
+          };
+        }
+
+        const remaining = len - offset;
+        if (remaining >= 64) {
+          // Fast word-aligned 32-bit XOR path for full 64-byte dual-blocks
+          outView.setUint32(offset,      (inView.getUint32(offset, true)      ^ z0)  >>> 0, true);
+          outView.setUint32(offset + 4,  (inView.getUint32(offset + 4, true)  ^ z1)  >>> 0, true);
+          outView.setUint32(offset + 8,  (inView.getUint32(offset + 8, true)  ^ z2)  >>> 0, true);
+          outView.setUint32(offset + 12, (inView.getUint32(offset + 12, true) ^ z3)  >>> 0, true);
+          outView.setUint32(offset + 16, (inView.getUint32(offset + 16, true) ^ z4)  >>> 0, true);
+          outView.setUint32(offset + 20, (inView.getUint32(offset + 20, true) ^ z5)  >>> 0, true);
+          outView.setUint32(offset + 24, (inView.getUint32(offset + 24, true) ^ z6)  >>> 0, true);
+          outView.setUint32(offset + 28, (inView.getUint32(offset + 28, true) ^ z7)  >>> 0, true);
+
+          outView.setUint32(offset + 32, (inView.getUint32(offset + 32, true) ^ z8)  >>> 0, true);
+          outView.setUint32(offset + 36, (inView.getUint32(offset + 36, true) ^ z9)  >>> 0, true);
+          outView.setUint32(offset + 40, (inView.getUint32(offset + 40, true) ^ z10) >>> 0, true);
+          outView.setUint32(offset + 44, (inView.getUint32(offset + 44, true) ^ z11) >>> 0, true);
+          outView.setUint32(offset + 48, (inView.getUint32(offset + 48, true) ^ z12) >>> 0, true);
+          outView.setUint32(offset + 52, (inView.getUint32(offset + 52, true) ^ z13) >>> 0, true);
+          outView.setUint32(offset + 56, (inView.getUint32(offset + 56, true) ^ z14) >>> 0, true);
+          outView.setUint32(offset + 60, (inView.getUint32(offset + 60, true) ^ z15) >>> 0, true);
+          offset += 64;
+        } else {
+          // Tail byte-level XOR for partial final block (< 64 bytes)
+          const ksWords = [z0, z1, z2, z3, z4, z5, z6, z7, z8, z9, z10, z11, z12, z13, z14, z15];
+          for (let i = 0; i < remaining; i++) {
+            const word = ksWords[i >>> 2];
+            const byteVal = (word >>> ((i & 3) * 8)) & 0xff;
+            output[offset + i] = inputBytes[offset + i] ^ byteVal;
+          }
+          offset += remaining;
+        }
+      }
+
+      // If input was empty (0 bytes), still compute Step 0 snapshot for the live visualizer
+      if (inspectFirstStep && step0Snapshot === null) {
+        const wA = tango4BlockWords(keyWords, nonceWords, 0, rounds);
+        const wB = tango4BlockWords(keyWords, nonceWords, 1, rounds);
+        step0Snapshot = {
+          blockA: { alpha: wA.slice(0, 4), beta: wA.slice(4, 8) },
+          blockB: { alpha: wB.slice(0, 4), beta: wB.slice(4, 8) }
+        };
+      }
+
+      return { bytes: output, snapshot: step0Snapshot };
+    }
+
+    /**
+     * 2tango4 Single-Block Engine (32 bytes per step, 20 rounds)
+     * Used in benchmark suite to show exact speedup gained by 2tango4x2 dual-block parallelization.
+     */
+    function tango4SingleCrypt(inputBytes, keyWords, nonceWords, rounds) {
+      const len = inputBytes.length;
+      const output = new Uint8Array(len);
+      const outView = new DataView(output.buffer);
+      const inView = new DataView(inputBytes.buffer, inputBytes.byteOffset, inputBytes.byteLength);
+
+      let offset = 0;
+      let ctr = 0;
+
+      while (offset < len) {
+        const z = tango4BlockWords(keyWords, nonceWords, ctr >>> 0, rounds);
+        ctr = (ctr + 1) >>> 0;
+
+        const remaining = len - offset;
+        if (remaining >= 32) {
+          outView.setUint32(offset,      (inView.getUint32(offset, true)      ^ z[0]) >>> 0, true);
+          outView.setUint32(offset + 4,  (inView.getUint32(offset + 4, true)  ^ z[1]) >>> 0, true);
+          outView.setUint32(offset + 8,  (inView.getUint32(offset + 8, true)  ^ z[2]) >>> 0, true);
+          outView.setUint32(offset + 12, (inView.getUint32(offset + 12, true) ^ z[3]) >>> 0, true);
+          outView.setUint32(offset + 16, (inView.getUint32(offset + 16, true) ^ z[4]) >>> 0, true);
+          outView.setUint32(offset + 20, (inView.getUint32(offset + 20, true) ^ z[5]) >>> 0, true);
+          outView.setUint32(offset + 24, (inView.getUint32(offset + 24, true) ^ z[6]) >>> 0, true);
+          outView.setUint32(offset + 28, (inView.getUint32(offset + 28, true) ^ z[7]) >>> 0, true);
+          offset += 32;
+        } else {
+          for (let i = 0; i < remaining; i++) {
+            const byteVal = (z[i >>> 2] >>> ((i & 3) * 8)) & 0xff;
+            output[offset + i] = inputBytes[offset + i] ^ byteVal;
+          }
+          offset += remaining;
+        }
+      }
+      return output;
+    }
+
+    /**
+     * Standard ChaCha20 (RFC 8439 — 20 rounds, 512-bit state, 64 bytes per block)
+     * Pure JavaScript baseline for apples-to-apples browser throughput comparison.
+     */
+    function chacha20Crypt(inputBytes, keyWords, nonceWords) {
+      const len = inputBytes.length;
+      const output = new Uint8Array(len);
+      const outView = new DataView(output.buffer);
+      const inView = new DataView(inputBytes.buffer, inputBytes.byteOffset, inputBytes.byteLength);
+
+      const c0 = 0x61707865, c1 = 0x3320646e, c2 = 0x79622d32, c3 = 0x6b206574;
+      const k0 = keyWords[0], k1 = keyWords[1], k2 = keyWords[2], k3 = keyWords[3];
+      const k4 = keyWords[4], k5 = keyWords[5], k6 = keyWords[6], k7 = keyWords[7];
+      const n0 = nonceWords[0], n1 = nonceWords[1], n2 = nonceWords[2];
+
+      let offset = 0;
+      let ctr = 1; // RFC 8439 starts counter at 1 (0 is often reserved for Poly1305 key)
+
+      while (offset < len) {
+        let x0 = c0, x1 = c1, x2 = c2, x3 = c3;
+        let x4 = k0, x5 = k1, x6 = k2, x7 = k3;
+        let x8 = k4, x9 = k5, x10 = k6, x11 = k7;
+        let x12 = ctr >>> 0, x13 = n0, x14 = n1, x15 = n2;
+
+        for (let i = 0; i < 10; i++) {
+          // Column rounds
+          x0 = (x0 + x4) >>> 0; x12 = rotl32(x12 ^ x0, 16);
+          x8 = (x8 + x12) >>> 0; x4 = rotl32(x4 ^ x8, 12);
+          x0 = (x0 + x4) >>> 0; x12 = rotl32(x12 ^ x0, 8);
+          x8 = (x8 + x12) >>> 0; x4 = rotl32(x4 ^ x8, 7);
+
+          x1 = (x1 + x5) >>> 0; x13 = rotl32(x13 ^ x1, 16);
+          x9 = (x9 + x13) >>> 0; x5 = rotl32(x5 ^ x9, 12);
+          x1 = (x1 + x5) >>> 0; x13 = rotl32(x13 ^ x1, 8);
+          x9 = (x9 + x13) >>> 0; x5 = rotl32(x5 ^ x9, 7);
+
+          x2 = (x2 + x6) >>> 0; x14 = rotl32(x14 ^ x2, 16);
+          x10 = (x10 + x14) >>> 0; x6 = rotl32(x6 ^ x10, 12);
+          x2 = (x2 + x6) >>> 0; x14 = rotl32(x14 ^ x2, 8);
+          x10 = (x10 + x14) >>> 0; x6 = rotl32(x6 ^ x10, 7);
+
+          x3 = (x3 + x7) >>> 0; x15 = rotl32(x15 ^ x3, 16);
+          x11 = (x11 + x15) >>> 0; x7 = rotl32(x7 ^ x11, 12);
+          x3 = (x3 + x7) >>> 0; x15 = rotl32(x15 ^ x3, 8);
+          x11 = (x11 + x15) >>> 0; x7 = rotl32(x7 ^ x11, 7);
+
+          // Diagonal rounds
+          x0 = (x0 + x5) >>> 0; x15 = rotl32(x15 ^ x0, 16);
+          x10 = (x10 + x15) >>> 0; x5 = rotl32(x5 ^ x10, 12);
+          x0 = (x0 + x5) >>> 0; x15 = rotl32(x15 ^ x0, 8);
+          x10 = (x10 + x15) >>> 0; x5 = rotl32(x5 ^ x10, 7);
+
+          x1 = (x1 + x6) >>> 0; x12 = rotl32(x12 ^ x1, 16);
+          x11 = (x11 + x12) >>> 0; x6 = rotl32(x6 ^ x11, 12);
+          x1 = (x1 + x6) >>> 0; x12 = rotl32(x12 ^ x1, 8);
+          x11 = (x11 + x12) >>> 0; x6 = rotl32(x6 ^ x11, 7);
+
+          x2 = (x2 + x7) >>> 0; x13 = rotl32(x13 ^ x2, 16);
+          x8 = (x8 + x13) >>> 0; x7 = rotl32(x7 ^ x8, 12);
+          x2 = (x2 + x7) >>> 0; x13 = rotl32(x13 ^ x2, 8);
+          x8 = (x8 + x13) >>> 0; x7 = rotl32(x7 ^ x8, 7);
+
+          x3 = (x3 + x4) >>> 0; x14 = rotl32(x14 ^ x3, 16);
+          x9 = (x9 + x14) >>> 0; x4 = rotl32(x4 ^ x9, 12);
+          x3 = (x3 + x4) >>> 0; x14 = rotl32(x14 ^ x3, 8);
+          x9 = (x9 + x14) >>> 0; x4 = rotl32(x4 ^ x9, 7);
+        }
+
+        const z0 = (x0 + c0) >>> 0, z1 = (x1 + c1) >>> 0, z2 = (x2 + c2) >>> 0, z3 = (x3 + c3) >>> 0;
+        const z4 = (x4 + k0) >>> 0, z5 = (x5 + k1) >>> 0, z6 = (x6 + k2) >>> 0, z7 = (x7 + k3) >>> 0;
+        const z8 = (x8 + k4) >>> 0, z9 = (x9 + k5) >>> 0, z10 = (x10 + k6) >>> 0, z11 = (x11 + k7) >>> 0;
+        const z12 = (x12 + ctr) >>> 0, z13 = (x13 + n0) >>> 0, z14 = (x14 + n1) >>> 0, z15 = (x15 + n2) >>> 0;
+
+        ctr = (ctr + 1) >>> 0;
+        const remaining = len - offset;
+
+        if (remaining >= 64) {
+          outView.setUint32(offset,      (inView.getUint32(offset, true)      ^ z0)  >>> 0, true);
+          outView.setUint32(offset + 4,  (inView.getUint32(offset + 4, true)  ^ z1)  >>> 0, true);
+          outView.setUint32(offset + 8,  (inView.getUint32(offset + 8, true)  ^ z2)  >>> 0, true);
+          outView.setUint32(offset + 12, (inView.getUint32(offset + 12, true) ^ z3)  >>> 0, true);
+          outView.setUint32(offset + 16, (inView.getUint32(offset + 16, true) ^ z4)  >>> 0, true);
+          outView.setUint32(offset + 20, (inView.getUint32(offset + 20, true) ^ z5)  >>> 0, true);
+          outView.setUint32(offset + 24, (inView.getUint32(offset + 24, true) ^ z6)  >>> 0, true);
+          outView.setUint32(offset + 28, (inView.getUint32(offset + 28, true) ^ z7)  >>> 0, true);
+          outView.setUint32(offset + 32, (inView.getUint32(offset + 32, true) ^ z8)  >>> 0, true);
+          outView.setUint32(offset + 36, (inView.getUint32(offset + 36, true) ^ z9)  >>> 0, true);
+          outView.setUint32(offset + 40, (inView.getUint32(offset + 40, true) ^ z10) >>> 0, true);
+          outView.setUint32(offset + 44, (inView.getUint32(offset + 44, true) ^ z11) >>> 0, true);
+          outView.setUint32(offset + 48, (inView.getUint32(offset + 48, true) ^ z12) >>> 0, true);
+          outView.setUint32(offset + 52, (inView.getUint32(offset + 52, true) ^ z13) >>> 0, true);
+          outView.setUint32(offset + 56, (inView.getUint32(offset + 56, true) ^ z14) >>> 0, true);
+          outView.setUint32(offset + 60, (inView.getUint32(offset + 60, true) ^ z15) >>> 0, true);
+          offset += 64;
+        } else {
+          const ksWords = [z0, z1, z2, z3, z4, z5, z6, z7, z8, z9, z10, z11, z12, z13, z14, z15];
+          for (let i = 0; i < remaining; i++) {
+            const byteVal = (ksWords[i >>> 2] >>> ((i & 3) * 8)) & 0xff;
+            output[offset + i] = inputBytes[offset + i] ^ byteVal;
+          }
+          offset += remaining;
+        }
+      }
+      return output;
+    }
+
+    /* ==========================================================================
+       HEX / UTF-8 / KEY PARSING UTILITIES
+       ========================================================================== */
+    const textEncoder = new TextEncoder();
+    const textDecoder = new TextDecoder("utf-8", { fatal: false });
+
+    function randomHex(byteCount) {
+      const buf = new Uint8Array(byteCount);
+      if (window.crypto && window.crypto.getRandomValues) {
+        window.crypto.getRandomValues(buf);
+      } else {
+        for (let i = 0; i < byteCount; i++) buf[i] = Math.floor(Math.random() * 256);
+      }
+      return bytesToHex(buf);
+    }
+
+    function bytesToHex(bytes) {
+      let hex = "";
+      for (let i = 0; i < bytes.length; i++) {
+        hex += bytes[i].toString(16).padStart(2, "0");
+      }
+      return hex;
+    }
+
+    function hexToBytes(hexStr) {
+      const clean = hexStr.replace(/\s+/g, "").toLowerCase();
+      if (clean.length % 2 !== 0 || !/^[0-9a-f]*$/.test(clean)) {
+        throw new Error("Invalid hexadecimal string (must have even number of 0-9, a-f chars).");
+      }
+      const out = new Uint8Array(clean.length / 2);
+      for (let i = 0; i < out.length; i++) {
+        out[i] = parseInt(clean.substr(i * 2, 2), 16);
+      }
+      return out;
+    }
+
+    function parseWordsFromHex(hexStr, expectedWords, label) {
+      const clean = hexStr.replace(/\s+/g, "").toLowerCase();
+      const expectedChars = expectedWords * 8;
+      if (clean.length !== expectedChars || !/^[0-9a-f]+$/.test(clean)) {
+        throw new Error(`${label} must be exactly ${expectedChars} hex characters (${expectedWords * 32} bits).`);
+      }
+      const bytes = hexToBytes(clean);
+      const view = new DataView(bytes.buffer);
+      const words = new Uint32Array(expectedWords);
+      for (let i = 0; i < expectedWords; i++) {
+        words[i] = view.getUint32(i * 4, true);
+      }
+      return words;
+    }
+
+    function formatWordHex(w) {
+      return (w >>> 0).toString(16).padStart(8, "0").toUpperCase();
+    }
+
+    /* ==========================================================================
+       DOM INTERACTION & LIVE VISUALIZATION
+       ========================================================================== */
+    const keyInput = document.getElementById("keyInput");
+    const nonceInput = document.getElementById("nonceInput");
+    const roundSelect = document.getElementById("roundSelect");
+    const plaintextInput = document.getElementById("plaintextInput");
+    const ciphertextOutput = document.getElementById("ciphertextOutput");
+    const statusToast = document.getElementById("statusToast");
+    const statusText = document.getElementById("statusText");
+
+    function showToast(msg, isError = false) {
+      statusText.textContent = msg;
+      statusToast.classList.toggle("error", isError);
+      statusToast.classList.add("visible");
+    }
+
+    function updateVisualizer(snapshot) {
+      if (!snapshot) return;
+      const renderChips = (elId, words) => {
+        const el = document.getElementById(elId);
+        el.innerHTML = words.map(w => `<div class="word-chip">${formatWordHex(w)}</div>`).join("");
+      };
+      renderChips("visA_alpha", snapshot.blockA.alpha);
+      renderChips("visA_beta", snapshot.blockA.beta);
+      renderChips("visB_alpha", snapshot.blockB.alpha);
+      renderChips("visB_beta", snapshot.blockB.beta);
+    }
+
+    function updateByteBadges() {
+      const kLen = keyInput.value.replace(/\s+/g, "").length;
+      document.getElementById("keyLenHint").textContent = `${kLen} / 64 hex`;
+
+      const ptBytes = textEncoder.encode(plaintextInput.value);
+      document.getElementById("ptByteCount").textContent = `${ptBytes.length} bytes`;
+
+      const cleanCt = ciphertextOutput.value.replace(/\s+/g, "");
+      document.getElementById("ctByteCount").textContent = `${Math.floor(cleanCt.length / 2)} bytes`;
+    }
+
+    function runEncrypt(silent = false) {
+      try {
+        const keyWords = parseWordsFromHex(keyInput.value, 8, "256-bit Key");
+        const nonceWords = parseWordsFromHex(nonceInput.value, 3, "96-bit Nonce");
+        const rounds = parseInt(roundSelect.value, 10);
+        document.getElementById("activeRoundBadge").textContent = `${rounds} Rounds Active`;
+
+        const ptBytes = textEncoder.encode(plaintextInput.value);
+        const { bytes: ctBytes, snapshot } = tango4x2Crypt(ptBytes, keyWords, nonceWords, rounds, true);
+
+        ciphertextOutput.value = bytesToHex(ctBytes);
+        updateVisualizer(snapshot);
+        updateByteBadges();
+
+        if (!silent) {
+          showToast(`Encrypted ${ptBytes.length} bytes across ${Math.max(1, Math.ceil(ptBytes.length / 64))} dual-block step(s) (${rounds}R).`);
+        }
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    }
+
+    function runDecrypt() {
+      try {
+        const keyWords = parseWordsFromHex(keyInput.value, 8, "256-bit Key");
+        const nonceWords = parseWordsFromHex(nonceInput.value, 3, "96-bit Nonce");
+        const rounds = parseInt(roundSelect.value, 10);
+
+        const ctBytes = hexToBytes(ciphertextOutput.value);
+        const { bytes: ptBytes, snapshot } = tango4x2Crypt(ctBytes, keyWords, nonceWords, rounds, true);
+
+        plaintextInput.value = textDecoder.decode(ptBytes);
+        updateVisualizer(snapshot);
+        updateByteBadges();
+        showToast(`Decrypted ${ctBytes.length} bytes at 1:1 symmetric XOR parity (${rounds}R).`);
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    }
+
+    // Event bindings for Workbench
+    document.getElementById("genKeyBtn").addEventListener("click", () => {
+      keyInput.value = randomHex(32);
+      runEncrypt(true);
+      showToast("Generated new cryptographically random 256-bit key.");
+    });
+
+    document.getElementById("genNonceBtn").addEventListener("click", () => {
+      nonceInput.value = randomHex(12);
+      runEncrypt(true);
+      showToast("Generated fresh 96-bit nonce.");
+    });
+
+    document.getElementById("encryptBtn").addEventListener("click", () => runEncrypt(false));
+    document.getElementById("decryptBtn").addEventListener("click", () => runDecrypt());
+
+    document.getElementById("copyHexBtn").addEventListener("click", () => {
+      if (!ciphertextOutput.value) {
+        showToast("Nothing to copy — encrypt plaintext first.", true);
+        return;
+      }
+      ciphertextOutput.select();
+      ciphertextOutput.setSelectionRange(0, ciphertextOutput.value.length);
+      try {
+        document.execCommand("copy");
+        showToast("Ciphertext copied to clipboard.");
+      } catch (e) {
+        showToast("Unable to access clipboard in this context.", true);
+      }
+    });
+
+    keyInput.addEventListener("input", () => { updateByteBadges(); });
+    nonceInput.addEventListener("input", () => { updateByteBadges(); });
+    plaintextInput.addEventListener("input", () => { updateByteBadges(); });
+    ciphertextOutput.addEventListener("input", () => { updateByteBadges(); });
+    roundSelect.addEventListener("change", () => runEncrypt(false));
+
+    /* ==========================================================================
+       LIVE IN-BROWSER BENCHMARK ENGINE
+       ========================================================================== */
+    const runBenchBtn = document.getElementById("runBenchBtn");
+    const payloadSizeSelect = document.getElementById("payloadSizeSelect");
+
+    function measureThroughput(fn, payloadBytes, iterations) {
+      // Warmup pass so JIT optimizes hot 32-bit integer loops fairly
+      fn(payloadBytes.subarray(0, Math.min(4096, payloadBytes.length)));
+
+      const t0 = performance.now();
+      let sink = 0;
+      for (let i = 0; i < iterations; i++) {
+        const res = fn(payloadBytes);
+        sink ^= res[0]; // Prevent dead-code elimination
+      }
+      const t1 = performance.now();
+      const elapsedMs = Math.max(0.05, t1 - t0);
+      const totalMB = (payloadBytes.length * iterations) / (1024 * 1024);
+      const mbps = totalMB / (elapsedMs / 1000);
+      return { mbps, avgMs: elapsedMs / iterations, sink };
+    }
+
+    function executeBenchmarkSuite() {
+      runBenchBtn.disabled = true;
+      runBenchBtn.textContent = "Running Benchmark...";
+
+      // Yield a frame so button state updates cleanly before CPU-bound loop
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          try {
+            const size = parseInt(payloadSizeSelect.value, 10);
+            const iterations = size <= 65536 ? 24 : size <= 262144 ? 12 : size <= 1048576 ? 5 : 2;
+
+            // Prepare realistic random test buffer
+            const payload = new Uint8Array(size);
+            for (let i = 0; i < size; i += 65536) {
+              const chunk = payload.subarray(i, Math.min(size, i + 65536));
+              if (window.crypto && window.crypto.getRandomValues) {
+                window.crypto.getRandomValues(chunk);
+              }
+            }
+
+            const keyWords = new Uint32Array([
+              0x243f6a88, 0x85a308d3, 0x13198a2e, 0x03707344,
+              0xa4093822, 0x299f31d0, 0x082efa98, 0xec4e6c89
+            ]);
+            const nonceWords = new Uint32Array([0x452821e6, 0x38d01377, 0xbe5466cf]);
+
+            // 1. 2tango4x2 (20 rounds, dual-block 64B)
+            const t2Enc = measureThroughput(
+              (buf) => tango4x2Crypt(buf, keyWords, nonceWords, 20, false).bytes,
+              payload,
+              iterations
+            );
+            const sampleCtT2 = tango4x2Crypt(payload, keyWords, nonceWords, 20, false).bytes;
+            const t2Dec = measureThroughput(
+              (buf) => tango4x2Crypt(buf, keyWords, nonceWords, 20, false).bytes,
+              sampleCtT2,
+              iterations
+            );
+
+            // 2. 2tango4 (20 rounds, single-block 32B)
+            const t1Enc = measureThroughput(
+              (buf) => tango4SingleCrypt(buf, keyWords, nonceWords, 20),
+              payload,
+              iterations
+            );
+            const sampleCtT1 = tango4SingleCrypt(payload, keyWords, nonceWords, 20);
+            const t1Dec = measureThroughput(
+              (buf) => tango4SingleCrypt(buf, keyWords, nonceWords, 20),
+              sampleCtT1,
+              iterations
+            );
+
+            // 3. ChaCha20 (RFC 8439, 20 rounds, 64B)
+            const ccEnc = measureThroughput(
+              (buf) => chacha20Crypt(buf, keyWords, nonceWords),
+              payload,
+              iterations
+            );
+            const sampleCtCC = chacha20Crypt(payload, keyWords, nonceWords);
+            const ccDec = measureThroughput(
+              (buf) => chacha20Crypt(buf, keyWords, nonceWords),
+              sampleCtCC,
+              iterations
+            );
+
+            // Update Bar Charts
+            const maxEnc = Math.max(t2Enc.mbps, t1Enc.mbps, ccEnc.mbps, 1);
+            const maxDec = Math.max(t2Dec.mbps, t1Dec.mbps, ccDec.mbps, 1);
+
+            document.getElementById("encVal_t2").textContent = `${t2Enc.mbps.toFixed(1)} MB/s`;
+            document.getElementById("encVal_t1").textContent = `${t1Enc.mbps.toFixed(1)} MB/s`;
+            document.getElementById("encVal_cc").textContent = `${ccEnc.mbps.toFixed(1)} MB/s`;
+
+            document.getElementById("encBar_t2").style.width = `${((t2Enc.mbps / maxEnc) * 100).toFixed(1)}%`;
+            document.getElementById("encBar_t1").style.width = `${((t1Enc.mbps / maxEnc) * 100).toFixed(1)}%`;
+            document.getElementById("encBar_cc").style.width = `${((ccEnc.mbps / maxEnc) * 100).toFixed(1)}%`;
+
+            document.getElementById("decVal_t2").textContent = `${t2Dec.mbps.toFixed(1)} MB/s`;
+            document.getElementById("decVal_t1").textContent = `${t1Dec.mbps.toFixed(1)} MB/s`;
+            document.getElementById("decVal_cc").textContent = `${ccDec.mbps.toFixed(1)} MB/s`;
+
+            document.getElementById("decBar_t2").style.width = `${((t2Dec.mbps / maxDec) * 100).toFixed(1)}%`;
+            document.getElementById("decBar_t1").style.width = `${((t1Dec.mbps / maxDec) * 100).toFixed(1)}%`;
+            document.getElementById("decBar_cc").style.width = `${((ccDec.mbps / maxDec) * 100).toFixed(1)}%`;
+
+            // Update Metrics Table
+            const t2AvgThroughput = (t2Enc.mbps + t2Dec.mbps) / 2;
+            const t1AvgThroughput = (t1Enc.mbps + t1Dec.mbps) / 2;
+            const ccAvgThroughput = (ccEnc.mbps + ccDec.mbps) / 2;
+
+            document.getElementById("tbl_enc_t2").textContent = `${t2Enc.mbps.toFixed(1)} MB/s`;
+            document.getElementById("tbl_dec_t2").textContent = `${t2Dec.mbps.toFixed(1)} MB/s`;
+            document.getElementById("tbl_lat_t2").textContent = `${t2Enc.avgMs.toFixed(2)} ms`;
+            document.getElementById("tbl_spd_t2").textContent = `${(t2AvgThroughput / ccAvgThroughput).toFixed(2)}x`;
+
+            document.getElementById("tbl_enc_t1").textContent = `${t1Enc.mbps.toFixed(1)} MB/s`;
+            document.getElementById("tbl_dec_t1").textContent = `${t1Dec.mbps.toFixed(1)} MB/s`;
+            document.getElementById("tbl_lat_t1").textContent = `${t1Enc.avgMs.toFixed(2)} ms`;
+            document.getElementById("tbl_spd_t1").textContent = `${(t1AvgThroughput / ccAvgThroughput).toFixed(2)}x`;
+
+            document.getElementById("tbl_enc_cc").textContent = `${ccEnc.mbps.toFixed(1)} MB/s`;
+            document.getElementById("tbl_dec_cc").textContent = `${ccDec.mbps.toFixed(1)} MB/s`;
+            document.getElementById("tbl_lat_cc").textContent = `${ccEnc.avgMs.toFixed(2)} ms`;
+          } finally {
+            runBenchBtn.disabled = false;
+            runBenchBtn.textContent = "Run Live Benchmark";
+          }
+        }, 25);
+      });
+    }
+
+    runBenchBtn.addEventListener("click", executeBenchmarkSuite);
+
+    // Initialize default 256-bit key, 96-bit nonce, run initial encryption, and run initial benchmark
+    window.addEventListener("DOMContentLoaded", () => {
+      keyInput.value = randomHex(32);
+      nonceInput.value = randomHex(12);
+      runEncrypt(true);
+      executeBenchmarkSuite();
+    });
+  </script>
+</body>
+</html>
